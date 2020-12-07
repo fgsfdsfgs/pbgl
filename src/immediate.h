@@ -1,0 +1,6 @@
+#ifndef _PBGL_IMMEDIATE_H
+#define _PBGL_IMMEDIATE_H
+
+#define IMMEDIATE_MAX_BATCH 30
+
+#endif // _PBGL_IMMEDIATE_H
