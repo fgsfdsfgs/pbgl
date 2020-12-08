@@ -7,6 +7,7 @@ extern "C" {
 
 int pbgl_init(int init_pbkit);
 void pbgl_set_swap_interval(int interval);
+int pbgl_get_swap_interval(void);
 void pbgl_swap_buffers(void);
 void pbgl_shutdown(void);
 

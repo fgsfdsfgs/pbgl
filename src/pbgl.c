@@ -16,10 +16,14 @@
 #include "pbgl.h"
 
 static GLboolean pbkit_initialized = GL_FALSE;
+static GLboolean pbkit_do_deinit = GL_FALSE;
 
 int pbgl_init(int init_pbkit) {
   if (pbgl.active)
     return -1; // don't double init
+
+  // remember who has to deinit pbkit later
+   pbkit_do_deinit = init_pbkit;
 
   // user says they've already initialized pbkit
   if (!init_pbkit) pbkit_initialized = GL_TRUE;
@@ -98,6 +102,9 @@ int pbgl_init(int init_pbkit) {
     return -3;
   }
 
+  // HACK: preserve some vars that might've been set before init
+  const int swap_interval = pbgl.swap_interval;
+
   // init default state
   pbgl_state_init();
 
@@ -114,6 +121,9 @@ int pbgl_init(int init_pbkit) {
   // wait for anything that's still happening just in case (probably not necessary)
   while (pb_busy());
 
+  // restore vars
+  pbgl.swap_interval = swap_interval;
+
   // we're live
   pbgl.active = GL_TRUE;
 
@@ -122,6 +132,10 @@ int pbgl_init(int init_pbkit) {
 
 void pbgl_set_swap_interval(int interval) {
   pbgl.swap_interval = interval;
+}
+
+int pbgl_get_swap_interval(void) {
+  return pbgl.swap_interval;
 }
 
 void pbgl_swap_buffers(void) {
@@ -146,8 +160,12 @@ void pbgl_shutdown(void) {
 
   if (pbkit_initialized) {
     while (pb_busy());
-    pb_kill();
-    pbkit_initialized = GL_FALSE;
+    // only deinit pbkit if it was us who inited it
+    if (pbkit_do_deinit) {
+      pb_kill();
+      pbkit_initialized = GL_FALSE;
+      pbkit_do_deinit = GL_FALSE;
+    }
   }
 
   // free all textures
