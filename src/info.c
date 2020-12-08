@@ -18,7 +18,8 @@ static const char *gl_renderer = "pbGL";
 static const char *gl_vendor = "not NVIDIA";
 static const char *gl_ext_string = \
   "GL_ARB_multitexture " \
-  "GL_ARB_texture_env_combine";
+  "GL_ARB_texture_env_combine " \
+  "GL_PBGL_texture_generate_mipmap";
 
 /* GL FUNCTIONS BEGIN */
 

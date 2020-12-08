@@ -312,12 +312,12 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
   tex->nv.linear = GL_FALSE; // TODO: this is basically free GL_TEXTURE_RECTANGLE, but that isn't in GL until 3.1
 
   const GLuint addr_u = wrap_gl_to_nv(tex->gl.wrap_s);
-  const GLuint wrap_u = (tex->gl.wrap_s == GL_REPEAT || tex->gl.wrap_s == GL_MIRRORED_REPEAT);
+  const GLuint wrap_u = 0; // TODO: what is this?
   const GLuint addr_v = wrap_gl_to_nv(tex->gl.wrap_t);
-  const GLuint wrap_v = (tex->gl.wrap_t == GL_REPEAT || tex->gl.wrap_t == GL_MIRRORED_REPEAT);
+  const GLuint wrap_v = 0; // TODO: what is this?
   const GLuint addr_p = wrap_gl_to_nv(tex->gl.wrap_r);
-  const GLuint wrap_p = (tex->gl.wrap_r == GL_REPEAT || tex->gl.wrap_r == GL_MIRRORED_REPEAT);
-  const GLuint wrap_q = 1; // TODO: when is this not 1?
+  const GLuint wrap_p = 0; // TODO: what is this?
+  const GLuint wrap_q = 0; // TODO: what is this?
 
   tex->nv.wrap =
     (addr_u << 0) | (wrap_u << 4) |
@@ -371,7 +371,7 @@ static GLboolean tex_alloc(texture_t *tex) {
     while (width > 0 || height > 0) {
       tex->mips[level].width = width;
       tex->mips[level].height = height;
-      tex->mips[level].pitch = tex->bytespp * width * height;
+      tex->mips[level].pitch = tex->bytespp * width;
       tex->mips[level].size = tex->mips[level].pitch * height;
       tex->mips[level].data = ptr;
       ptr += tex->mips[level].size;
@@ -389,7 +389,6 @@ static GLboolean tex_alloc(texture_t *tex) {
     tex->mipmax = 1;
   }
 
-  tex->mipcount = 1;
   tex->allocated = GL_TRUE;
 
   return GL_TRUE;
@@ -399,6 +398,51 @@ static inline void tex_free(texture_t *tex) {
   if (tex->bound) glFinish(); // wait until texture is not used
   if (tex->data) MmFreeContiguousMemory(tex->data);
   memset(tex, 0, sizeof(*tex));
+}
+
+static inline GLboolean tex_realloc(texture_t *tex) {
+  // move the texture off to the heap to reduce contiguous memory fragmentation
+  void *copy = malloc(tex->size);
+  if (!copy) return GL_FALSE;
+
+  aligned_copy(copy, tex->data, tex->size);
+
+  // realloc
+  MmFreeContiguousMemory(tex->data);
+  tex->data = NULL;
+  if (!tex_alloc(tex)) {
+    free(copy);
+    return GL_FALSE;
+  }
+
+  // restore the texture
+  aligned_copy(tex->data, copy, tex->mips[0].size);
+
+  free(copy);
+
+  return GL_TRUE;
+}
+
+static void tex_build_mips(texture_t *tex) {
+  for (GLuint level = tex->mipcount; level < tex->mipmax; ++level, ++tex->mipcount) {
+    const GLuint out_width = tex->mips[level].width;
+    const GLuint out_height = tex->mips[level].height;
+    const GLuint bytespp = tex->bytespp;
+    const GLuint in_pitch = tex->mips[level - 1].pitch;
+    const GLubyte *in = tex->mips[level - 1].data;
+    GLubyte *out = tex->mips[level].data;
+    // FIXME: this is not RGB555/RGB565/RGBA5551 aware
+    for (GLuint y = 0; y < out_height; ++y, in += in_pitch) {
+      const GLubyte *inp = in;
+      for (GLuint x = 0; x < out_width; ++x, out += bytespp, inp += bytespp) {
+        // take four samples from the previous level and average them
+        for (GLuint i = 0; i < bytespp; ++i)
+          out[i] = (inp[i] + inp[i + bytespp] + inp[i + in_pitch] + inp[i + in_pitch + bytespp]) >> 2;
+      }
+    }
+  }
+  // update nv parameters since mipcount has changed
+  tex_gl_to_nv(tex);
 }
 
 GLboolean pbgl_tex_init(void) {
@@ -579,32 +623,15 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     // texture is already allocated, what the fuck does the user want?
     if (level > 0) {
       // user wants to upload mipmaps
+      tex->mipcount = level + 1;
       if (!tex->mipmap) {
         // realloc the texture if it wasn't a mipmap before and we're making it a mipmap now
         // FIXME: how the fuck is a GL implementation supposed to know this in advance? do they all realloc memory?
-        // move the texture off to the heap to reduce contiguous memory fragmentation
-        void *copy = malloc(tex->size);
-        if (!copy) {
-          pbgl_set_error(GL_OUT_OF_MEMORY);
-          return;
-        }
-
-        aligned_copy(copy, tex->data, tex->size);
-
-        // realloc
-        MmFreeContiguousMemory(tex->data);
         tex->mipmap = GL_TRUE;
-        tex->data = NULL;
-        if (!tex_alloc(tex)) {
-          free(copy);
+        if (!tex_realloc(tex)) {
           pbgl_set_error(GL_OUT_OF_MEMORY);
           return;
         }
-
-        // restore the texture
-        aligned_copy(tex->data, copy, tex->mips[0].size);
-
-        free(copy);
       } else if (level >= tex->mipmax) {
         // uploading more mips than the size can take is a no-op
         return;
@@ -618,8 +645,6 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
       MmFreeContiguousMemory(tex->data);
       tex->data = NULL;
       tex->mipmap = GL_FALSE;
-      tex->mipcount = 0;
-      tex->mipmax = 1;
       tex->allocated = GL_FALSE;
     }
   }
@@ -634,6 +659,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
         (tex->gl.min_filter >= GL_NEAREST_MIPMAP_NEAREST) ||
         tex->gl.gen_mipmap;
     }
+    tex->mipcount = level + 1;
     // set GL formats
     tex->gl.format = intfmt;
     tex->gl.baseformat = intfmt_basefmt(intfmt);
@@ -655,9 +681,11 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
   if (data != NULL) {
     // upload data if provided
     tex_store(tex, data, fmt, data_bytespp, level, 0, 0, width, height, reverse);
+    if (tex->gl.gen_mipmap && level == 0) {
+      // generate mipmaps if needed
+      tex_build_mips(tex);
+    }
   }
-
-  tex->mipcount = level + 1;
 }
 
 GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *data) {
@@ -762,4 +790,37 @@ GL_API void glClientActiveTexture(GLenum tex) {
 GL_API GLboolean glIsTexture(GLuint texture) {
   // FIXME: this can return GL_TRUE for objects that happen to have the same id as a live texture
   return (texture < tex_cap && textures[texture].used);
+}
+
+GL_API void glGenerateMipmap(GLenum target) {
+  if (pbgl.imm.active) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  texture_t *tex = pbgl.tex[pbgl.active_tex_sv].tex;
+  // TODO: 3D mipmaps?
+  if (!tex || tex->target != target || target != GL_TEXTURE_2D) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  // can't generate mipmaps if there's nothing to generate from
+  if (!tex->allocated || tex->mipcount == 0) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  // if the texture isn't ready for mipmaps, realloc it
+  if (!tex->mipmap) {
+    tex->mipmap = GL_TRUE;
+    if (!tex_realloc(tex)) {
+      pbgl_set_error(GL_OUT_OF_MEMORY);
+      return;
+    }
+  }
+
+  tex_build_mips(tex);
+
+  pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
 }
