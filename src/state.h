@@ -5,6 +5,7 @@
 #include "GL/glext.h"
 #include "types.h"
 #include "matrix.h"
+#include "light.h"
 #include "texture.h"
 #include "array.h"
 
@@ -87,6 +88,23 @@ typedef struct {
   GLboolean identity;
   mat4f mtx;
 } matrix_state_t;
+
+typedef struct {
+  GLboolean dirty;
+  GLboolean enabled;
+  vec4f ambient;
+  vec4f diffuse;
+  vec4f specular;
+  vec4f pos;
+  GLfloat factor[LFACTOR_COUNT];
+} light_state_t;
+
+typedef struct {
+  GLboolean dirty;
+  GLboolean local;
+  GLboolean twosided;
+  vec4f ambient;
+} light_model_state_t;
 
 typedef struct {
   GLenum dirty;
@@ -184,6 +202,7 @@ typedef struct {
   polyofs_state_t polyofs;
   color_mask_t colormask;
   cull_state_t cullface;
+  light_model_state_t lightmodel;
   fog_state_t fog;
 
   immediate_state_t imm;
@@ -194,6 +213,9 @@ typedef struct {
 
   texenv_state_t texenv[TEXUNIT_COUNT];
   GLboolean texenv_dirty;
+
+  light_state_t light[LIGHT_COUNT];
+  GLboolean light_any_dirty;
 
   matrix_state_t mtx[MTX_COUNT];
   GLenum mtx_current;

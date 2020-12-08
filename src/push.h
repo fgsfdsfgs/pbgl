@@ -7,7 +7,24 @@
 #include <assert.h>
 #include <pbkit/pbkit.h>
 
-#define NV097_SET_SPECULAR_ENABLE 0x000003B8
+#define NV097_SET_TWO_SIDE_LIGHT_EN           0x17C4
+#define NV097_SET_BACK_SCENE_AMBIENT_COLOR    0x17A0
+#define NV097_SET_BACK_MATERIAL_EMISSION      0x17B0
+#define NV097_SET_MATERIAL_EMISSION           0x03A8
+#define NV097_SET_MATERIAL_ALPHA              0x03B4
+#define NV097_SET_BACK_MATERIAL_ALPHA         0x17AC
+#define NV097_SET_SPECULAR_ENABLE             0x03B8
+#define NV097_SET_COLOR_MATERIAL              0x0298
+#define NV097_SET_SPECULAR_PARAMS             0x09E0
+#define NV097_SET_BACK_SPECULAR_PARAMS        0x1E28
+#define NV097_SET_LIGHT_CONTROL               0x0294
+
+#define NV097_SET_LIGHT_CONTROL_SEPARATE_SPECULAR_EN 0x00000003
+#define NV097_SET_LIGHT_CONTROL_LOCALEYE             0x00010000
+#define NV097_SET_LIGHT_CONTROL_SOUT                 0xFFFE0000
+#define NV097_SET_LIGHT_CONTROL_SOUT_ZERO_OUT        0
+#define NV097_SET_LIGHT_CONTROL_SOUT_PASSTHROUGH     1
+
 #define NV097_SET_CONTROL0_TEXTUREPERSPECTIVE 0x100000
 
 static inline uint32_t *push_command(uint32_t *p, uint32_t command, unsigned int parameter_count) {

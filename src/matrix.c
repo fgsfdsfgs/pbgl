@@ -97,7 +97,7 @@ GL_API void glLoadTransposeMatrixd(const GLdouble *m) {
 }
 
 GL_API void glMultMatrixf(const GLfloat *m) {
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, (const mat4f *)m);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, (const mat4f *)m, &pbgl.mtx[pbgl.mtx_current].mtx);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -106,7 +106,7 @@ GL_API void glMultMatrixd(const GLdouble *m) {
   mat4f tmp;
   for (int i = 0; i < 16; ++i)
     tmp.v[i] = (float)m[i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &tmp, &pbgl.mtx[pbgl.mtx_current].mtx);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -116,7 +116,7 @@ GL_API void glMultTransposeMatrixf(const GLfloat *m) {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)
       tmp.m[i][j] = m[j * 4 + i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &tmp, &pbgl.mtx[pbgl.mtx_current].mtx);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -126,7 +126,7 @@ GL_API void glMultTransposeMatrixd(const GLdouble *m) {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)
       tmp.m[i][j] = (float)m[j * 4 + i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &tmp, &pbgl.mtx[pbgl.mtx_current].mtx);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }

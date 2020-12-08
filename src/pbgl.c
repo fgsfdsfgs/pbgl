@@ -47,7 +47,6 @@ int pbgl_init(int init_pbkit) {
 
   // set some default crap
   p = push_command_boolean(p, NV097_SET_SPECULAR_ENABLE, 1);
-  p = push_command_boolean(p, NV097_SET_LIGHTING_ENABLE, 0);
   p = push_command_boolean(p, NV097_SET_NORMALIZATION_ENABLE, 0);
   p = push_command_boolean(p, NV097_SET_ZMIN_MAX_CONTROL, 1);
   p = push_command_boolean(p, NV097_SET_COMPRESS_ZBUFFER_EN, 1);

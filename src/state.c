@@ -8,6 +8,7 @@
 #include "texture.h"
 #include "array.h"
 #include "error.h"
+#include "light.h"
 #include "texenv.h"
 #include "push.h"
 #include "misc.h"
@@ -70,6 +71,26 @@ void pbgl_state_init(void) {
     | NV097_SET_COLOR_MASK_BLUE_WRITE_ENABLE
     | NV097_SET_COLOR_MASK_ALPHA_WRITE_ENABLE;
   pbgl.colormask.dirty = GL_TRUE;
+
+  for (int i = 1; i < LIGHT_COUNT; ++i) {
+    pbgl.light[i].ambient = (vec4f){{ 0.f, 0.f, 0.f, 1.f }};
+    pbgl.light[i].diffuse = (vec4f){{ 0.f, 0.f, 0.f, 1.f }};
+    pbgl.light[i].specular = (vec4f){{ 0.f, 0.f, 0.f, 1.f }};
+    pbgl.light[i].pos = (vec4f){{ 0.f, 0.f, 1.f, 0.f }};
+    pbgl.light[i].factor[0] = 1.f; // GL_CONSTANT_ATTENUATION
+    pbgl.light[i].dirty = GL_TRUE;
+  }
+  // light #0 has a different initial state for some reason
+  pbgl.light[0].ambient = (vec4f){{ 1.f, 1.f, 1.f, 1.f }};
+  pbgl.light[0].diffuse = (vec4f){{ 1.f, 1.f, 1.f, 1.f }};
+  pbgl.light[0].specular = (vec4f){{ 1.f, 1.f, 1.f, 1.f }};
+  pbgl.light[0].pos = (vec4f){{ 0.f, 0.f, 1.f, 0.f }};
+  pbgl.light[0].factor[0] = 1.f; // GL_CONSTANT_ATTENUATION
+  pbgl.light[0].dirty = GL_TRUE;
+  pbgl.light_any_dirty = GL_TRUE;
+
+  pbgl.lightmodel.ambient = (vec4f){{ 0.2f, 0.2f, 0.2f, 1.0f }};
+  pbgl.lightmodel.dirty = GL_TRUE;
 
   pbgl.imm.color    = (vec4f) {{ 1.f, 1.f, 1.f, 1.f }};
   pbgl.imm.normal   = (vec3f) {{ 0.f, 0.f, 1.f }};
@@ -228,7 +249,30 @@ GLboolean pbgl_state_flush(void) {
     pbgl.mtx_any_dirty = pbgl.mtx[MTX_PROJECTION].dirty = GL_TRUE;
   }
 
+  if (pbgl.lightmodel.dirty) {
+    p = push_command_parameter(p, NV097_SET_LIGHT_CONTROL, 
+      PBGL_MASK(NV097_SET_LIGHT_CONTROL_SEPARATE_SPECULAR_EN, GL_FALSE) | // TODO: this is probably a GL setting
+      PBGL_MASK(NV097_SET_LIGHT_CONTROL_LOCALEYE, pbgl.lightmodel.local) |
+      PBGL_MASK(NV097_SET_LIGHT_CONTROL_SOUT, NV097_SET_LIGHT_CONTROL_SOUT_ZERO_OUT));
+    p = push_command_boolean(p, NV097_SET_TWO_SIDE_LIGHT_EN, pbgl.lightmodel.twosided);
+    // set both front and back colors just in case
+    p = push_command(p, NV097_SET_SCENE_AMBIENT_COLOR, 3);
+    p = push_floats(p, pbgl.lightmodel.ambient.v, 3);
+    p = push_command(p, NV097_SET_BACK_SCENE_AMBIENT_COLOR, 3);
+    p = push_floats(p, pbgl.lightmodel.ambient.v, 3);
+    pbgl.lightmodel.dirty = GL_FALSE;
+  }
+
   pb_end(p);
+
+  if (pbgl.light_any_dirty) {
+    p = pb_begin();
+    p = push_command_boolean(p, NV097_SET_LIGHTING_ENABLE, pbgl.flags.lighting);
+    pb_end(p);
+    if (pbgl.flags.lighting)
+      pbgl_light_flush_all();
+    pbgl.light_any_dirty = GL_FALSE;
+  }
 
   if (pbgl.tex_any_dirty) {
     p = pb_begin();
@@ -246,10 +290,13 @@ GLboolean pbgl_state_flush(void) {
       if (pbgl.mtx[MTX_PROJECTION].dirty)
         p = push_command_matrix4x4(p, NV097_SET_PROJECTION_MATRIX, tmp.v);
       if (pbgl.mtx[MTX_MODELVIEW].dirty) {
-        // TODO: is this required at all?
-        // mat4f invmv;
-        // mat4_invert(&invmv, &pbgl.mtx[MTX_MODELVIEW].mtx);
-        // p = push_command_matrix4x4(p, NV097_SET_INVERSE_MODEL_VIEW_MATRIX, pbgl.mtx[MTX_MODELVIEW].mtx.v);
+        // inverse modelview matrix only required for lighting, only calculate it when required
+        // lighting toggle will set the dirty flag if needed
+        if (pbgl.flags.lighting) {
+          mat4f invmv;
+          mat4_invert(&invmv, &pbgl.mtx[MTX_MODELVIEW].mtx);
+          p = push_command_matrix4x4_transposed(p, NV097_SET_INVERSE_MODEL_VIEW_MATRIX, invmv.v);
+        }
         p = push_command_matrix4x4(p, NV097_SET_MODEL_VIEW_MATRIX, pbgl.mtx[MTX_MODELVIEW].mtx.v);
       }
       mat4_mul(&tmp, &pbgl.mtx[MTX_MODELVIEW].mtx, &tmp);
@@ -289,6 +336,8 @@ static inline void set_feature(GLenum feature, GLboolean value) {
     return;
   }
 
+  GLuint idx = 0;
+
   switch (feature) {
     case GL_ALPHA_TEST:
       FLAG_DIRTY_IF_CHANGED(alpha, alpha_test, value);
@@ -322,9 +371,18 @@ static inline void set_feature(GLenum feature, GLboolean value) {
       FLAG_DIRTY_IF_CHANGED(fog, fog, value);
       pbgl.flags.fog = value;
       break;
+    case GL_LIGHT0 ... GL_LIGHT7:
+      idx = feature - GL_LIGHT0;
+      if (pbgl.light[idx].enabled != value)
+        pbgl.state_dirty = pbgl.light_any_dirty = pbgl.light[idx].dirty = GL_TRUE;
+      pbgl.light[idx].enabled = value;
+      break;
     case GL_LIGHTING:
-      // TODO
+      if (pbgl.flags.lighting != value)
+        pbgl.state_dirty = pbgl.light_any_dirty = GL_TRUE;
       pbgl.flags.lighting = value;
+      // if we're enabling lighting, we'll need to upload the inverse modelview matrix
+      if (value) pbgl.mtx_any_dirty = pbgl.mtx[MTX_MODELVIEW].dirty = GL_TRUE;
       break;
     case GL_POLYGON_OFFSET_FILL:
       FLAG_DIRTY_IF_CHANGED(polyofs, poly_offset, value);
@@ -403,22 +461,23 @@ GL_API GLboolean glIsEnabled(GLenum feature) {
   }
 
   switch (feature) {
-    case GL_ALPHA_TEST:          return pbgl.flags.alpha_test;
-    case GL_DEPTH_TEST:          return pbgl.flags.depth_test;
-    case GL_SCISSOR_TEST:        return pbgl.flags.scissor_test;
-    case GL_STENCIL_TEST:        return pbgl.flags.stencil_test;
-    case GL_BLEND:               return pbgl.flags.blend;
-    case GL_CULL_FACE:           return pbgl.flags.cull_face;
-    case GL_DITHER:              return pbgl.flags.dither;
-    case GL_FOG:                 return pbgl.flags.fog;
-    case GL_LIGHTING:            return pbgl.flags.lighting;
-    case GL_POLYGON_OFFSET_FILL: return pbgl.flags.poly_offset;
-    case GL_TEXTURE_1D:          return pbgl.flags.texture_1d;
-    case GL_TEXTURE_2D:          return pbgl.flags.texture_2d;
-    case GL_TEXTURE_GEN_S:       return pbgl.flags.texgen_s;
-    case GL_TEXTURE_GEN_T:       return pbgl.flags.texgen_t;
-    case GL_TEXTURE_GEN_R:       return pbgl.flags.texgen_r;
-    case GL_TEXTURE_GEN_Q:       return pbgl.flags.texgen_q;
+    case GL_ALPHA_TEST:           return pbgl.flags.alpha_test;
+    case GL_DEPTH_TEST:           return pbgl.flags.depth_test;
+    case GL_SCISSOR_TEST:         return pbgl.flags.scissor_test;
+    case GL_STENCIL_TEST:         return pbgl.flags.stencil_test;
+    case GL_BLEND:                return pbgl.flags.blend;
+    case GL_CULL_FACE:            return pbgl.flags.cull_face;
+    case GL_DITHER:               return pbgl.flags.dither;
+    case GL_FOG:                  return pbgl.flags.fog;
+    case GL_LIGHT0 ... GL_LIGHT7: return pbgl.light[feature - GL_LIGHT0].enabled;
+    case GL_LIGHTING:             return pbgl.flags.lighting;
+    case GL_POLYGON_OFFSET_FILL:  return pbgl.flags.poly_offset;
+    case GL_TEXTURE_1D:           return pbgl.flags.texture_1d;
+    case GL_TEXTURE_2D:           return pbgl.flags.texture_2d;
+    case GL_TEXTURE_GEN_S:        return pbgl.flags.texgen_s;
+    case GL_TEXTURE_GEN_T:        return pbgl.flags.texgen_t;
+    case GL_TEXTURE_GEN_R:        return pbgl.flags.texgen_r;
+    case GL_TEXTURE_GEN_Q:        return pbgl.flags.texgen_q;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       return GL_FALSE;
