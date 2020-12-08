@@ -804,7 +804,7 @@ GL_API const GLubyte *glGetString(GLenum name);
 // GL_API void glGetTexGendv(GLenum coord, GLenum pname, GLdouble *params);
 // GL_API void glGetTexGenfv(GLenum coord, GLenum pname, GLfloat *params);
 // GL_API void glGetTexGeniv(GLenum coord, GLenum pname, GLint *params);
-// GL_API void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, GLvoid *pixels);
+GL_API void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, GLvoid *pixels);
 // GL_API void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat *params);
 // GL_API void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *params);
 GL_API void glGetTexParameterfv(GLenum target, GLenum pname, GLfloat *params);

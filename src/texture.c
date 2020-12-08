@@ -857,3 +857,24 @@ GL_API void glCopyTexImage2D(GLenum target, GLint level, GLenum internalFormat, 
 GL_API void glCopyTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height) {
   // TODO:
 }
+
+GL_API void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, GLvoid *pixels) {
+  if (pbgl.imm.active) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  texture_t *tex = pbgl.tex[pbgl.active_tex_sv].tex;
+  if (!tex || tex->target != target || !tex->allocated || tex->mipcount <= level) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  if (format == tex->gl.baseformat && type == tex->gl.type) {
+    unswizzle_rect(tex->mips[level].data, tex->mips[level].width, tex->mips[level].height, pixels, tex->mips[level].pitch, tex->bytespp);
+  } else {
+    // TODO
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+}
