@@ -27,7 +27,20 @@ Do keep in mind that you still have to set the display resolution before calling
 #include <pbgl.h>
 #include <GL/gl.h>
 #include <GL/glext.h>
+...
+// argument indicates whether or not to init PBKit as well
+pbgl_init(GL_TRUE);
+// you're free to use GL functions after this
+...
+glClearColor(1.f, 0.f, 0.f, 1.f);
+glClear(GL_COLOR_BUFFER_BIT);
+// don't forget to swap buffers when you're done with the frame
+pbgl_swap_buffers();
+...
+pbgl_shutdown(); // this will also shutdown PBKit
 ```
+
+See the [samples](https://github.com/fgsfdsfgs/pbgl-samples) repository for more in-depth usage examples.
 
 # Credits
 * NXDK authors and contributors for NXDK and the libraries included in it
