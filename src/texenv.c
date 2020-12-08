@@ -456,5 +456,5 @@ GL_API void glTexEnvi(GLenum target, GLenum pname, GLint param) {
 
 GL_API void glTexEnvf(GLenum target, GLenum pname, GLfloat param) {
   // TODO
-  glTexEnvi(target, pname, param);
+  glTexEnvi(target, pname, (GLint)param);
 }

@@ -771,6 +771,31 @@ GL_API void glTexParameterf(GLenum target, GLenum pname, GLfloat param) {
   glTexParameteri(target, pname, (GLint)param);
 }
 
+GL_API void glGetTexParameteriv(GLenum target, GLenum pname, GLint *out) {
+  texture_t *tex = pbgl.tex[pbgl.active_tex_sv].tex;
+  if (!tex || tex->target != target) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  switch (pname) {
+    case GL_TEXTURE_MIN_FILTER: *out = tex->gl.min_filter; break;
+    case GL_TEXTURE_MAG_FILTER: *out = tex->gl.mag_filter; break;
+    case GL_TEXTURE_WRAP_S:     *out = tex->gl.wrap_s; break;
+    case GL_TEXTURE_WRAP_T:     *out = tex->gl.wrap_t; break;
+    case GL_TEXTURE_WRAP_R:     *out = tex->gl.wrap_r; break;
+    case GL_GENERATE_MIPMAP:    *out = tex->gl.gen_mipmap; break;
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      break;
+  }
+}
+
+GL_API void glGetTexParameterfv(GLenum target, GLenum pname, GLfloat *out) {
+  // TODO
+  pbgl_set_error(GL_INVALID_ENUM);
+}
+
 GL_API void glActiveTexture(GLenum tex) {
   if (tex < GL_TEXTURE0 || tex > GL_TEXTURE3) {
     pbgl_set_error(GL_INVALID_ENUM);

@@ -584,6 +584,10 @@ GL_API void glPixelStorei(GLenum pname, GLint param) {
   // TODO:
 }
 
+GL_API void glPolygonMode(GLenum face, GLenum mode) {
+  // TODO:
+}
+
 GL_API void glPointSize(GLfloat size) {
   // TODO:
 }
