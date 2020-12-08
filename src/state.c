@@ -121,9 +121,10 @@ static inline GLuint *flush_texunit(GLuint *p, const GLuint i) {
 
     p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), enable);
 
-    if (tu->tex && enable) {
+    if (tu->tex && enable != NV_TEX_DISABLE) {
       // note: we only operate on swizzled textures
-        p = pb_push2(p, NV20_TCL_PRIMITIVE_3D_TX_OFFSET(i), tu->tex->nv.addr, tu->tex->nv.format);
+        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_OFFSET(i), tu->tex->nv.addr);
+        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FORMAT(i), tu->tex->nv.format);
         p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_PITCH(i), tu->tex->pitch << 16);
         p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_SIZE(i), (tu->tex->width << 16) | tu->tex->height);
         p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FILTER(i), tu->tex->nv.filter);

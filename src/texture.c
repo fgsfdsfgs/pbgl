@@ -300,6 +300,8 @@ static inline void tex_init(texture_t *tex, GLuint dim, GLuint w, GLuint h, GLui
   tex->bytespp = intfmt_bytespp(tex->gl.format);
   tex->pitch = tex->bytespp * tex->width;
   tex->zpitch = tex->pitch * tex->height;
+  tex->mipcount = 0;
+  tex->mipmax = 1; // there's always at least one mip
 }
 
 static inline GLboolean tex_gl_to_nv(texture_t *tex) {
@@ -325,11 +327,11 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
 
   const GLuint filter_min = filter_gl_to_nv_min(tex->gl.min_filter);
   const GLuint filter_mag = filter_gl_to_nv_mag(tex->gl.mag_filter);
-  // TODO: convolution filter
 
   tex->nv.filter =
     PBGL_MASK(NV097_SET_TEXTURE_FILTER_MIN, filter_min) |
-    PBGL_MASK(NV097_SET_TEXTURE_FILTER_MAG, filter_mag);
+    PBGL_MASK(NV097_SET_TEXTURE_FILTER_MAG, filter_mag) |
+    0x00004000; // this is either LOD bias or the convolution filter, dunno
 
   const GLuint size_u = ulog2(tex->width);
   const GLuint size_v = ulog2(tex->height);
@@ -344,6 +346,8 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
     PBGL_MASK(NV097_SET_TEXTURE_FORMAT_BASE_SIZE_V, size_v) |
     PBGL_MASK(NV097_SET_TEXTURE_FORMAT_BASE_SIZE_P, size_p) |
     0xA; /* dma context and other shit here, presumably */
+
+  tex->nv.addr = (GLuint)tex->data & 0x03FFFFFF;
 
   return GL_TRUE;
 }
@@ -417,14 +421,15 @@ GLboolean pbgl_tex_init(void) {
   textures[0].gl.wrap_s = GL_CLAMP;
   textures[0].gl.wrap_t = GL_CLAMP;
   textures[0].gl.wrap_r = GL_CLAMP;
+  textures[0].gl.border = GL_TRUE; // TODO
 
   tex_init(&textures[0], 2, 4, 4, 1);
-  tex_gl_to_nv(&textures[0]);
   if (!tex_alloc(&textures[0])) {
     free(textures);
     pbgl_set_error(GL_OUT_OF_MEMORY);
     return GL_FALSE;
   }
+  tex_gl_to_nv(&textures[0]);
 
   tex_count = 1;
 
@@ -507,10 +512,12 @@ GL_API void glBindTexture(GLenum target, GLuint tex) {
 
   if (tex == 0) {
     pbgl.tex[pbgl.active_tex_sv].tex = NULL;
+    pbgl.tex[pbgl.active_tex_sv].enabled = GL_FALSE;
   } else {
     textures[tex].target = target;
     textures[tex].bound = GL_TRUE;
     pbgl.tex[pbgl.active_tex_sv].tex = &textures[tex];
+    pbgl.tex[pbgl.active_tex_sv].enabled = GL_TRUE;
   }
 
   if (changed) {
@@ -627,17 +634,20 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
         (tex->gl.min_filter >= GL_NEAREST_MIPMAP_NEAREST) ||
         tex->gl.gen_mipmap;
     }
-    // convert formats and shit
+    // set GL formats
     tex->gl.format = intfmt;
     tex->gl.baseformat = intfmt_basefmt(intfmt);
-    if (!tex_gl_to_nv(tex)) {
-      // unknown format
-      pbgl_set_error(GL_INVALID_ENUM);
-      return;
-    }
     // allocate memory
     if (!tex_alloc(tex)) {
       pbgl_set_error(GL_OUT_OF_MEMORY);
+      return;
+    }
+    // convert formats and shit
+    if (!tex_gl_to_nv(tex)) {
+      // unknown format
+      MmFreeContiguousMemory(tex->data);
+      tex->data = NULL;
+      pbgl_set_error(GL_INVALID_ENUM);
       return;
     }
   }
@@ -647,7 +657,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     tex_store(tex, data, fmt, data_bytespp, level, 0, 0, width, height, reverse);
   }
 
-  tex->mipcount = level;
+  tex->mipcount = level + 1;
 }
 
 GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *data) {
