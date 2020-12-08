@@ -418,9 +418,9 @@ GLboolean pbgl_tex_init(void) {
   textures[0].gl.format = GL_RGBA8;
   textures[0].gl.mag_filter = GL_NEAREST;
   textures[0].gl.min_filter = GL_NEAREST;
-  textures[0].gl.wrap_s = GL_CLAMP;
-  textures[0].gl.wrap_t = GL_CLAMP;
-  textures[0].gl.wrap_r = GL_CLAMP;
+  textures[0].gl.wrap_s = GL_REPEAT;
+  textures[0].gl.wrap_t = GL_REPEAT;
+  textures[0].gl.wrap_r = GL_REPEAT;
   textures[0].gl.border = GL_TRUE; // TODO
 
   tex_init(&textures[0], 2, 4, 4, 1);
