@@ -285,21 +285,21 @@ GLboolean pbgl_state_flush(void) {
     p = pb_begin();
     if (pbgl.mtx[MTX_PROJECTION].dirty || pbgl.mtx[MTX_MODELVIEW].dirty) {
       mat4f tmp;
-      mat4_mul(&tmp, &pbgl.mtx[MTX_PROJECTION].mtx, &pbgl.view.mtx);
+      mat4_mul(&tmp, &pbgl.view.mtx, &pbgl.mtx[MTX_PROJECTION].mtx);
       if (pbgl.mtx[MTX_PROJECTION].dirty)
-        p = push_command_matrix4x4(p, NV097_SET_PROJECTION_MATRIX, tmp.v);
+        p = push_command_matrix4x4_transposed(p, NV097_SET_PROJECTION_MATRIX, tmp.v);
       if (pbgl.mtx[MTX_MODELVIEW].dirty) {
         // inverse modelview matrix only required for lighting, only calculate it when required
         // lighting toggle will set the dirty flag if needed
         if (pbgl.flags.lighting) {
           mat4f invmv;
           mat4_invert(&invmv, &pbgl.mtx[MTX_MODELVIEW].mtx);
-          p = push_command_matrix4x4_transposed(p, NV097_SET_INVERSE_MODEL_VIEW_MATRIX, invmv.v);
+          p = push_command_matrix4x4(p, NV097_SET_INVERSE_MODEL_VIEW_MATRIX, invmv.v);
         }
-        p = push_command_matrix4x4(p, NV097_SET_MODEL_VIEW_MATRIX, pbgl.mtx[MTX_MODELVIEW].mtx.v);
+        p = push_command_matrix4x4_transposed(p, NV097_SET_MODEL_VIEW_MATRIX, pbgl.mtx[MTX_MODELVIEW].mtx.v);
       }
-      mat4_mul(&tmp, &pbgl.mtx[MTX_MODELVIEW].mtx, &tmp);
-      p = push_command_matrix4x4(p, NV097_SET_COMPOSITE_MATRIX, tmp.v);
+      mat4_mul(&tmp, &tmp, &pbgl.mtx[MTX_MODELVIEW].mtx);
+      p = push_command_matrix4x4_transposed(p, NV097_SET_COMPOSITE_MATRIX, tmp.v);
       pbgl.mtx[MTX_PROJECTION].dirty = pbgl.mtx[MTX_MODELVIEW].dirty = GL_FALSE;
     }
     pb_end(p);

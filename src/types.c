@@ -112,10 +112,10 @@ mat4f *mat4_invert(mat4f *out, const mat4f *m) {
 void mat4_viewport(mat4f *m, float x, float y, float w, float h, float znear, float zfar) {
   *m = mat4_zero;
   m->m[0][0] = w / 2.0f;
-  m->m[0][3] = x + w / 2.0f;
   m->m[1][1] = h / -2.0f;
-  m->m[1][3] = y + h / 2.0f;
   m->m[2][2] = (zfar - znear) / 2.f;
-  m->m[2][3] = (zfar + znear) / 2.f;
+  m->m[3][0] = x + w / 2.0f;
+  m->m[3][1] = y + h / 2.0f;
+  m->m[3][2] = (zfar + znear) / 2.f;
   m->m[3][3] = 1.0f;
 }

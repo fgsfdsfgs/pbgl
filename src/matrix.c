@@ -97,7 +97,7 @@ GL_API void glLoadTransposeMatrixd(const GLdouble *m) {
 }
 
 GL_API void glMultMatrixf(const GLfloat *m) {
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, (const mat4f *)m, &pbgl.mtx[pbgl.mtx_current].mtx);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, (const mat4f *)m);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -106,7 +106,7 @@ GL_API void glMultMatrixd(const GLdouble *m) {
   mat4f tmp;
   for (int i = 0; i < 16; ++i)
     tmp.v[i] = (float)m[i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &tmp, &pbgl.mtx[pbgl.mtx_current].mtx);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -116,7 +116,7 @@ GL_API void glMultTransposeMatrixf(const GLfloat *m) {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)
       tmp.m[i][j] = m[j * 4 + i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &tmp, &pbgl.mtx[pbgl.mtx_current].mtx);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -126,7 +126,7 @@ GL_API void glMultTransposeMatrixd(const GLdouble *m) {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)
       tmp.m[i][j] = (float)m[j * 4 + i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &tmp, &pbgl.mtx[pbgl.mtx_current].mtx);
+  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -151,9 +151,9 @@ GL_API void glPopMatrix(void) {
 
 GL_API void glTranslatef(GLfloat x, GLfloat y, GLfloat z) {
   mat4f tmp = mat4_identity;
-  tmp.m[0][3] = x;
-  tmp.m[1][3] = y;
-  tmp.m[2][3] = z;
+  tmp.m[3][0] = x;
+  tmp.m[3][1] = y;
+  tmp.m[3][2] = z;
   glMultMatrixf(tmp.v);
 }
 
@@ -180,9 +180,7 @@ GL_API void glRotatef(GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
   if ((x == 0.f && y == 0.f && z == 0.f) || (angle == 0.f))
     return;
 
-  // normalize axis vector
-  const GLfloat len = 1.f / sqrtf(x * x + y * y + z * z);
-  x *= len; y *= len; z *= len;
+  // HACK: assume vector is normalized
 
   // angle is passed in in degrees
   angle *= M_PI / 180.f;
@@ -217,14 +215,11 @@ GL_API void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top
   mat4f tmp = {{ 0.f }};
 
   tmp.m[0][0] = 2.0 / (right - left);
-  tmp.m[0][3] = -(left + right) / (right - left);
-
   tmp.m[1][1] = 2.0 / (top - bottom);
-  tmp.m[1][3] = -(top + bottom) / (top - bottom);
-
   tmp.m[2][2] = -2.0 / (zfar - znear);
-  tmp.m[2][3] = -(zfar + znear) / (zfar - znear);
-
+  tmp.m[3][0] = - (right + left) / (right - left);
+  tmp.m[3][1] = - (top + bottom) / (top - bottom);
+  tmp.m[3][2] = - (zfar + znear) / (zfar - znear);
   tmp.m[3][3] = 1.f;
 
   glMultMatrixf(tmp.v);
@@ -234,15 +229,12 @@ GL_API void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble t
   mat4f tmp = {{ 0.f }};
 
   tmp.m[0][0] = 2.0 * znear / (right - left);
-  tmp.m[2][0] = (left + right) / (right - left);
-
   tmp.m[1][1] = 2.0 * znear / (top - bottom);
+  tmp.m[2][0] = (right + left) / (right - left);
   tmp.m[2][1] = (top + bottom) / (top - bottom);
-
-  tmp.m[2][2] = -(zfar + znear) / (zfar - znear);
-  tmp.m[3][2] = -1.f;
-
-  tmp.m[2][3] = -2.0 * znear * zfar / (zfar - znear);
+  tmp.m[2][2] = - (zfar + znear) / (zfar - znear);
+  tmp.m[2][3] = -1.f;
+  tmp.m[3][2] = - (2.0 * zfar * znear) / (zfar - znear);
 
   glMultMatrixf(tmp.v);
 }

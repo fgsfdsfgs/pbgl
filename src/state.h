@@ -29,6 +29,7 @@ typedef union {
     GLuint texgen_r     : 1; // 15
     GLuint texgen_s     : 1; // 16
     GLuint texgen_t     : 1; // 17
+    GLuint normalize    : 1; // 18
   };
   GLuint word;
 } server_flags_t;
