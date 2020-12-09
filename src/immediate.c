@@ -171,6 +171,7 @@ GL_API void glTexCoord2iv(const GLint *v) {
 }
 
 GL_API void glMultiTexCoord4f(GLenum unit, GLfloat s, GLfloat t, GLfloat r, GLfloat q) {
+  unit -= GL_TEXTURE0;
   pbgl.tex[unit].texcoord.x = s;
   pbgl.tex[unit].texcoord.y = t;
   pbgl.tex[unit].texcoord.z = r;

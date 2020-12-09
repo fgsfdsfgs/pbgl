@@ -137,22 +137,21 @@ static inline GLuint *flush_texunit(GLuint *p, const GLuint i) {
       if (pbgl.flags.alpha_test)
         enable |= NV_TEX_ALPHAKILL;
     } else {
-        enable = NV_TEX_DISABLE;
+      enable = NV_TEX_DISABLE;
     }
-
-    p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), enable);
 
     if (tu->tex && enable != NV_TEX_DISABLE) {
       // note: we only operate on swizzled textures
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_OFFSET(i), tu->tex->nv.addr);
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FORMAT(i), tu->tex->nv.format);
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_PITCH(i), tu->tex->pitch << 16);
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_SIZE(i), (tu->tex->width << 16) | tu->tex->height);
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FILTER(i), tu->tex->nv.filter);
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_WRAP(i), tu->tex->nv.wrap);
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_MATRIX_ENABLE(i), GL_TRUE);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), enable);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_OFFSET(i), tu->tex->nv.addr);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FORMAT(i), tu->tex->nv.format);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_PITCH(i), tu->tex->pitch << 16);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_SIZE(i), (tu->tex->width << 16) | tu->tex->height);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FILTER(i), tu->tex->nv.filter);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_WRAP(i), tu->tex->nv.wrap);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_MATRIX_ENABLE(i), GL_TRUE);
     } else {
-        p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_MATRIX_ENABLE(i), GL_FALSE);
+      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_MATRIX_ENABLE(i), GL_FALSE);
     }
 
     tu->dirty = GL_FALSE;

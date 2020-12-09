@@ -89,8 +89,10 @@ int pbgl_init(int init_pbkit) {
   pb_end(p);
 
   p = pb_begin();
-  for (GLuint i = 0, ofs = 0; i < TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4)
+  for (GLuint i = 0, ofs = 0; i < TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4) {
+    p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), 0x0003FFC0);
     p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, mat4_identity.v);
+  }
   pb_end(p);
 
   while (pb_busy());

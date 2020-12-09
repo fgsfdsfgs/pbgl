@@ -12,7 +12,7 @@
 #include "swizzle.h"
 #include "texture.h"
 
-#define TEX_ALLOC_STEP 64
+#define TEX_ALLOC_STEP 256
 #define TEX_MAXRAM 0x03FFAFFF
 
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_WRAP          1
@@ -105,11 +105,11 @@ static inline GLuint intfmt_gl_to_nv(const GLenum glformat) {
 
     case 3: // legacy alias for GL_RGB
     case GL_RGB:
-    case GL_RGB8:              return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_X8R8G8B8;
+    case GL_RGB8:              return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_A8B8G8R8;
 
     case 4: // legacy alias for GL_RGBA
     case GL_RGBA:
-    case GL_RGBA8:             return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_A8R8G8B8;
+    case GL_RGBA8:             return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_A8B8G8R8;
 
     case GL_RGBA4:             return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_A4R4G4B4;
     case GL_RGB5_A1:           return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_A1R5G5B5;
@@ -363,12 +363,12 @@ static GLboolean tex_alloc(texture_t *tex) {
     return GL_FALSE;
   }
 
-  if (tex->mipmap) {
+  if (tex->mipmap && (tex->width > 1 || tex->height > 1)) {
     GLuint width = tex->width;
     GLuint height = tex->height;
     GLuint level = 0;
     GLubyte *ptr = tex->data;
-    while (width > 0 || height > 0) {
+    while (width > 1 || height > 1) {
       tex->mips[level].width = width;
       tex->mips[level].height = height;
       tex->mips[level].pitch = tex->bytespp * width;
@@ -376,8 +376,8 @@ static GLboolean tex_alloc(texture_t *tex) {
       tex->mips[level].data = ptr;
       ptr += tex->mips[level].size;
       level++;
-      width >>= 1;
-      height >>= 1;
+      width = umax((width >> 1), 1);
+      height = umax((height >> 1), 1);
     }
     tex->mipmax = level;
   } else {

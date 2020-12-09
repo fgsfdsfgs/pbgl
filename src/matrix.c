@@ -217,13 +217,13 @@ GL_API void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top
   mat4f tmp = {{ 0.f }};
 
   tmp.m[0][0] = 2.0 / (right - left);
-  tmp.m[0][3] = (left + right) / (left - right);
+  tmp.m[0][3] = -(left + right) / (right - left);
 
   tmp.m[1][1] = 2.0 / (top - bottom);
-  tmp.m[1][3] = (top + bottom) / (bottom - top);
+  tmp.m[1][3] = -(top + bottom) / (top - bottom);
 
-  tmp.m[2][2] = 1.0 / (zfar - znear);
-  tmp.m[2][3] = znear / (znear - zfar);
+  tmp.m[2][2] = -2.0 / (zfar - znear);
+  tmp.m[2][3] = -(zfar + znear) / (zfar - znear);
 
   tmp.m[3][3] = 1.f;
 
