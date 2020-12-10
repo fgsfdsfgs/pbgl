@@ -250,11 +250,14 @@ static inline void aligned_copy(void *dst, const void *src, const GLuint len) {
 }
 
 static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint bytespp, GLuint level, GLuint x, GLuint y, GLuint w, GLuint h, GLboolean reverse) {
-  GLubyte *out = (GLubyte *)tex->mips[level].data + y * tex->mips[level].pitch + x * tex->bytespp;
+  GLubyte *out = (GLubyte *)tex->mips[level].data;
 
   if (tex->bytespp == bytespp && !reverse) {
     // no need for conversion
-    swizzle_rect(data, w, h, out, tex->mips[level].pitch, bytespp);
+    if (x || y)
+      swizzle_rect_offset(data, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
+    else
+      swizzle_rect(data, w, h, out, tex->mips[level].pitch, tex->bytespp);
     return;
   }
 
@@ -286,7 +289,10 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
   }
 
   // upload converted texture
-  swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
+  if (x || y)
+    swizzle_rect_offset(tmp, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
+  else
+    swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
 
   // free temp buffer
   free(tmp);
@@ -457,7 +463,7 @@ GLboolean pbgl_tex_init(void) {
 
   // allocate default texture
 
-  textures[0].gl.type = GL_TEXTURE_2D;
+  textures[0].gl.basetarget = GL_TEXTURE_2D;
   textures[0].gl.baseformat = GL_RGBA;
   textures[0].gl.format = GL_RGBA8;
   textures[0].gl.mag_filter = GL_NEAREST;
@@ -543,7 +549,7 @@ GL_API void glBindTexture(GLenum target, GLuint tex) {
     return;
   }
 
-  if (textures[tex].allocated && textures[tex].target && textures[tex].target != target) {
+  if (textures[tex].allocated && textures[tex].gl.basetarget && textures[tex].gl.basetarget != target) {
     // can't change targets after allocation
     pbgl_set_error(GL_INVALID_OPERATION);
     return;
@@ -661,6 +667,8 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     }
     tex->mipcount = level + 1;
     // set GL formats
+    tex->gl.basetarget = target;
+    tex->gl.type = type;
     tex->gl.format = intfmt;
     tex->gl.baseformat = intfmt_basefmt(intfmt);
     // allocate memory
@@ -734,7 +742,7 @@ GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, 
   if (data != NULL) {
     // upload data if provided
     tex_store(tex, data, format, data_bytespp, level, xoff, yoff, width, height, reverse);
-    pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
+    // pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
   }
 }
 

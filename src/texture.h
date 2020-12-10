@@ -28,6 +28,7 @@ typedef struct {
   } nv;
 
   struct {
+    GLenum basetarget;
     GLenum type;
     GLenum format;
     GLenum baseformat;
