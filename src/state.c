@@ -98,8 +98,19 @@ void pbgl_state_init(void) {
 
   for (int i = 0; i < TEXUNIT_COUNT; ++i) {
     pbgl.tex[i].dirty = GL_TRUE;
-    pbgl.texenv[i].mode = GL_MODULATE;
-    pbgl.texenv[i].dirty = GL_TRUE;
+    pbgl.texenv[i] = (texenv_state_t) {
+      .mode        = GL_MODULATE,
+      .combine_rgb = GL_MODULATE,
+      .combine_a   = GL_MODULATE,
+      .src_rgb     = { GL_TEXTURE, GL_PREVIOUS, GL_CONSTANT },
+      .src_a       = { GL_TEXTURE, GL_PREVIOUS, GL_CONSTANT },
+      .operand_rgb = { GL_SRC_COLOR, GL_SRC_COLOR, GL_SRC_ALPHA },
+      .operand_a   = { GL_SRC_ALPHA, GL_SRC_ALPHA, GL_SRC_ALPHA },
+      .color       = 0x00000000,
+      .scale_rgb   = 1.f,
+      .scale_a     = 1.f,
+      .dirty       = GL_TRUE,
+    };
   }
   pbgl.tex_any_dirty = GL_TRUE;
   pbgl.texenv_dirty = GL_TRUE;

@@ -310,6 +310,7 @@ static inline GLboolean texenv_combine_mode_valid(const GLenum mode) {
 GLuint *pbgl_texenv_push(GLuint *p) {
   GLuint stage = 0;
   GLuint rc_prev = RC_PRIMARY_COLOR;
+  GLuint shadermask[4] = { 0 };
 
   if (pbgl.flags.texture_1d || pbgl.flags.texture_2d) {
     for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
@@ -333,16 +334,13 @@ GLuint *pbgl_texenv_push(GLuint *p) {
             break;
         }
 
+        // enable 2d projective mode for this stage
+        shadermask[stage] = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_2D_PROJECTIVE;
+
         // use the output of the previous stage next
         rc_prev = RC_SPARE0;
 
-        // make sure texture is used at this stage
-        texenv->nvshader = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_2D_PROJECTIVE;
-
         ++stage;
-      } else {
-        // don't use texture color on this stage if it's disabled
-        texenv->nvshader = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_PROGRAM_NONE;
       }
     }
   }
@@ -360,10 +358,10 @@ GLuint *pbgl_texenv_push(GLuint *p) {
 
   // push shader modes
   p = pb_push1(p, NV097_SET_SHADER_STAGE_PROGRAM,
-      PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE0, pbgl.texenv[0].nvshader)
-    | PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE1, pbgl.texenv[1].nvshader)
-    | PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE2, pbgl.texenv[2].nvshader)
-    | PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE3, pbgl.texenv[3].nvshader));
+      PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE0, shadermask[0])
+    | PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE1, shadermask[1])
+    | PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE2, shadermask[2])
+    | PBGL_MASK(NV097_SET_SHADER_STAGE_PROGRAM_STAGE3, shadermask[3]));
 
   // set up final combiner
   // this should be `out.rgb = spare0.rgb; out.a = spare0.a;`

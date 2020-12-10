@@ -119,7 +119,6 @@ typedef struct {
   GLenum operand_rgb[3];
   GLenum operand_a[3];
   GLuint color;
-  GLuint nvshader;
 } texenv_state_t;
 
 typedef struct {
