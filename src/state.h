@@ -21,15 +21,11 @@ typedef union {
     GLuint fog          : 1; // 7
     GLuint lighting     : 1; // 8
     GLuint poly_offset  : 1; // 9
-    GLuint texture_1d   : 1; // 10
-    GLuint texture_2d   : 1; // 11
-    GLuint texture_3d   : 1; // 12
-    GLuint texture_cube : 1; // 13
-    GLuint texgen_q     : 1; // 14
-    GLuint texgen_r     : 1; // 15
-    GLuint texgen_s     : 1; // 16
-    GLuint texgen_t     : 1; // 17
-    GLuint normalize    : 1; // 18
+    GLuint texgen_q     : 1; // 10
+    GLuint texgen_r     : 1; // 11
+    GLuint texgen_s     : 1; // 12
+    GLuint texgen_t     : 1; // 13
+    GLuint normalize    : 1; // 14
   };
   GLuint word;
 } server_flags_t;
@@ -122,6 +118,19 @@ typedef struct {
 } texenv_state_t;
 
 typedef struct {
+  union texenv_flags_u {
+    struct {
+      GLuint texture_1d   : 1; // 0
+      GLuint texture_2d   : 1; // 1
+      GLuint texture_3d   : 1; // 2
+      GLuint texture_cube : 1; // 3
+      GLuint texgen_q     : 1; // 4
+      GLuint texgen_r     : 1; // 5
+      GLuint texgen_s     : 1; // 6
+      GLuint texgen_t     : 1; // 7
+    };
+    GLuint word;
+  } flags;
   GLboolean enabled;
   GLboolean dirty;
   vec4f texcoord;

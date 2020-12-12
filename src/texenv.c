@@ -169,6 +169,41 @@ static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const 
   return p;
 }
 
+static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+  const texture_t *tex = pbgl.tex[texid].tex;
+  switch (tex->gl.baseformat) {
+    case GL_ALPHA:
+      // Cv = Cp
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_ZERO, OP_ZERO);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      // Av = Ap * As
+      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_ZERO, OP_ZERO);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      break;
+    case GL_RGB:
+    case GL_LUMINANCE:
+      // Cv = Cp + Cs
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_CS, OP_ONE);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      // Av = Ap
+      p = texenv_push_src_a(p, stage, OP_AP, OP_ONE, OP_ZERO, OP_ZERO);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      break;
+    case GL_RGBA:
+    case GL_LUMINANCE_ALPHA:
+      // Cv = Cp + Cs
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_CS, OP_ONE);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      // Av = Ap * As
+      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_ZERO, OP_ZERO);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      break;
+    default:
+      break;
+  }
+  return p;
+}
+
 static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
@@ -285,6 +320,7 @@ static inline GLboolean texenv_mode_valid(const GLenum mode) {
     case GL_MODULATE:
     case GL_DECAL:
     case GL_COMBINE:
+    case GL_ADD:
       return GL_TRUE;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
@@ -310,38 +346,43 @@ static inline GLboolean texenv_combine_mode_valid(const GLenum mode) {
 GLuint *pbgl_texenv_push(GLuint *p) {
   GLuint stage = 0;
   GLuint rc_prev = RC_PRIMARY_COLOR;
-  GLuint shadermask[4] = { 0 };
+  GLuint shadermask[TEXUNIT_COUNT] = { 0 };
 
-  if (pbgl.flags.texture_1d || pbgl.flags.texture_2d) {
-    for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
-      texenv_state_t *texenv = pbgl.texenv + i;
-      if (pbgl.tex[i].enabled && pbgl.tex[i].tex) {
-        switch (texenv->mode) {
-          case GL_REPLACE:
-            p = texenv_push_replace(p, i, stage, rc_prev);
-            break;
-          case GL_MODULATE:
-            p = texenv_push_modulate(p, i, stage, rc_prev);
-            break;
-          case GL_DECAL:
-            p = texenv_push_decal(p, i, stage, rc_prev);
-            break;
-          case GL_COMBINE:
-            p = texenv_push_combine(p, texenv, i, stage, rc_prev);
-            break;
-          default:
-            // TODO: GL_BLEND, GL_INTERPOLATE, GL_ADD
-            break;
-        }
-
-        // enable 2d projective mode for this stage
-        shadermask[stage] = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_2D_PROJECTIVE;
-
-        // use the output of the previous stage next
-        rc_prev = RC_SPARE0;
-
-        ++stage;
+  for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
+    texenv_state_t *texenv = pbgl.texenv + i;
+    // TODO: properly handle texture_1d, texture_3d, texture_cube
+    const GLboolean tex_enabled =
+      pbgl.tex[i].flags.texture_1d ||
+      pbgl.tex[i].flags.texture_2d;
+    if (tex_enabled && pbgl.tex[i].enabled && pbgl.tex[i].tex) {
+      switch (texenv->mode) {
+        case GL_REPLACE:
+          p = texenv_push_replace(p, i, stage, rc_prev);
+          break;
+        case GL_MODULATE:
+          p = texenv_push_modulate(p, i, stage, rc_prev);
+          break;
+        case GL_DECAL:
+          p = texenv_push_decal(p, i, stage, rc_prev);
+          break;
+        case GL_ADD:
+          p = texenv_push_add(p, i, stage, rc_prev);
+          break;
+        case GL_COMBINE:
+          p = texenv_push_combine(p, texenv, i, stage, rc_prev);
+          break;
+        default:
+          // TODO: GL_BLEND, GL_INTERPOLATE
+          break;
       }
+
+      // enable 2d projective mode for this stage
+      shadermask[stage] = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_2D_PROJECTIVE;
+
+      // use the output of the previous stage next
+      rc_prev = RC_SPARE0;
+
+      ++stage;
     }
   }
 

@@ -359,9 +359,34 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
 }
 
 static GLboolean tex_alloc(texture_t *tex) {
-  tex->size = tex->zpitch * tex->depth;
-  // technically this should be / 3, but eh
-  if (tex->mipmap) tex->size += tex->size  / 2;
+  if (tex->mipmap && (tex->width > 1 || tex->height > 1)) {
+    GLuint width = tex->width;
+    GLuint height = tex->height;
+    GLuint level = 0;
+    GLubyte *ofs = NULL;
+    tex->size = 0;
+    while (width > 1 || height > 1) {
+      tex->mips[level].width = width;
+      tex->mips[level].height = height;
+      tex->mips[level].pitch = tex->bytespp * width;
+      tex->mips[level].size = tex->mips[level].pitch * height;
+      tex->mips[level].data = ofs;
+      ofs += tex->mips[level].size;
+      tex->size += tex->mips[level].size;
+      level++;
+      width = umax((width >> 1), 1);
+      height = umax((height >> 1), 1);
+    }
+    tex->mipmax = level;
+  } else {
+    tex->size = tex->pitch * tex->height;
+    tex->mips[0].width = tex->width;
+    tex->mips[0].height = tex->height;
+    tex->mips[0].pitch = tex->pitch;
+    tex->mips[0].size = tex->size;
+    tex->mips[0].data = NULL;
+    tex->mipmax = 1;
+  }
 
   tex->data = MmAllocateContiguousMemoryEx(tex->size, 0, TEX_MAXRAM, TEX_ALIGN, 0x404);
   if (!tex->data) {
@@ -369,31 +394,9 @@ static GLboolean tex_alloc(texture_t *tex) {
     return GL_FALSE;
   }
 
-  if (tex->mipmap && (tex->width > 1 || tex->height > 1)) {
-    GLuint width = tex->width;
-    GLuint height = tex->height;
-    GLuint level = 0;
-    GLubyte *ptr = tex->data;
-    while (width > 1 || height > 1) {
-      tex->mips[level].width = width;
-      tex->mips[level].height = height;
-      tex->mips[level].pitch = tex->bytespp * width;
-      tex->mips[level].size = tex->mips[level].pitch * height;
-      tex->mips[level].data = ptr;
-      ptr += tex->mips[level].size;
-      level++;
-      width = umax((width >> 1), 1);
-      height = umax((height >> 1), 1);
-    }
-    tex->mipmax = level;
-  } else {
-    tex->mips[0].width = tex->width;
-    tex->mips[0].height = tex->height;
-    tex->mips[0].pitch = tex->pitch;
-    tex->mips[0].size = tex->size;
-    tex->mips[0].data = tex->data;
-    tex->mipmax = 1;
-  }
+  // turn miplevel offsets into pointers
+  for (GLuint i = 0; i < tex->mipmax; ++i)
+    tex->mips[i].data += (GLuint)tex->data;
 
   tex->allocated = GL_TRUE;
 

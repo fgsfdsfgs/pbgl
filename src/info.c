@@ -18,6 +18,7 @@ static const char *gl_renderer = "pbGL";
 static const char *gl_vendor = "not NVIDIA";
 static const char *gl_ext_string = \
   "GL_ARB_multitexture " \
+  "GL_ARB_texture_env_add " \
   "GL_ARB_texture_env_combine " \
   "GL_PBGL_texture_generate_mipmap";
 
@@ -53,9 +54,9 @@ GL_API void glGetBooleanv(GLenum pname, GLboolean *params) {
     case GL_SCISSOR_TEST:          *params = pbgl.flags.scissor_test; break;
     case GL_SECONDARY_COLOR_ARRAY: *params = pbgl.varray[VARR_COLOR2].enabled; break;
     case GL_STENCIL_TEST:          *params = pbgl.flags.stencil_test; break;
-    case GL_TEXTURE_1D:            *params = pbgl.flags.texture_1d; break;
-    case GL_TEXTURE_2D:            *params = pbgl.flags.texture_2d; break;
-    case GL_TEXTURE_3D:            *params = pbgl.flags.texture_3d; break;
+    case GL_TEXTURE_1D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_1d; break;
+    case GL_TEXTURE_2D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_2d; break;
+    case GL_TEXTURE_3D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_3d; break;
     case GL_TEXTURE_COORD_ARRAY:   *params = pbgl.varray[VARR_TEXCOORD].enabled; break;
     case GL_TEXTURE_GEN_Q:         *params = pbgl.flags.texgen_q; break;
     case GL_TEXTURE_GEN_R:         *params = pbgl.flags.texgen_r; break;

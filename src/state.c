@@ -143,7 +143,10 @@ static inline GLuint *flush_texunit(GLuint *p, const GLuint i) {
     GLuint enable;
 
     // TODO: properly handle texture_1d, texture_3d, texture_cube
-    if (tu->enabled && (pbgl.flags.texture_1d || pbgl.flags.texture_2d)) {
+    const GLboolean tex_enabled =
+      pbgl.tex[i].flags.texture_1d ||
+      pbgl.tex[i].flags.texture_2d;
+    if (tu->enabled && tex_enabled) {
       enable = NV_TEX_ENABLE;
       if (pbgl.flags.alpha_test)
         enable |= NV_TEX_ALPHAKILL;
@@ -399,22 +402,22 @@ static inline void set_feature(GLenum feature, GLboolean value) {
       pbgl.flags.poly_offset = value;
       break;
     case GL_TEXTURE_1D:
-      if (pbgl.flags.texture_1d != value) {
+      if (pbgl.tex[pbgl.active_tex_sv].flags.texture_1d != value) {
         pbgl.tex_any_dirty = GL_TRUE;
         pbgl.texenv_dirty = GL_TRUE;
         pbgl.state_dirty = GL_TRUE;
-        mark_active_texunits_dirty();
+        pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
       }
-      pbgl.flags.texture_1d = value;
+      pbgl.tex[pbgl.active_tex_sv].flags.texture_1d = value;
       break;
     case GL_TEXTURE_2D:
-      if (pbgl.flags.texture_2d != value) {
+      if (pbgl.tex[pbgl.active_tex_sv].flags.texture_2d != value) {
         pbgl.tex_any_dirty = GL_TRUE;
         pbgl.texenv_dirty = GL_TRUE;
         pbgl.state_dirty = GL_TRUE;
-        mark_active_texunits_dirty();
+        pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
       }
-      pbgl.flags.texture_2d = value;
+      pbgl.tex[pbgl.active_tex_sv].flags.texture_2d = value;
       break;
     case GL_TEXTURE_GEN_S:
       pbgl.flags.texgen_s = value;
@@ -482,8 +485,8 @@ GL_API GLboolean glIsEnabled(GLenum feature) {
     case GL_LIGHT0 ... GL_LIGHT7: return pbgl.light[feature - GL_LIGHT0].enabled;
     case GL_LIGHTING:             return pbgl.flags.lighting;
     case GL_POLYGON_OFFSET_FILL:  return pbgl.flags.poly_offset;
-    case GL_TEXTURE_1D:           return pbgl.flags.texture_1d;
-    case GL_TEXTURE_2D:           return pbgl.flags.texture_2d;
+    case GL_TEXTURE_1D:           return pbgl.tex[pbgl.active_tex_sv].flags.texture_1d;
+    case GL_TEXTURE_2D:           return pbgl.tex[pbgl.active_tex_sv].flags.texture_2d;
     case GL_TEXTURE_GEN_S:        return pbgl.flags.texgen_s;
     case GL_TEXTURE_GEN_T:        return pbgl.flags.texgen_t;
     case GL_TEXTURE_GEN_R:        return pbgl.flags.texgen_r;
