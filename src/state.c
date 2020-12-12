@@ -136,16 +136,14 @@ void pbgl_state_init(void) {
   pbgl.active = GL_TRUE; // this can only be used when we're live
 }
 
-static inline GLuint *flush_texunit(GLuint *p, const GLuint i) {
+static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
   texunit_state_t *tu = pbgl.tex + i;
 
   if (tu->dirty) {
     GLuint enable;
 
     // TODO: properly handle texture_1d, texture_3d, texture_cube
-    const GLboolean tex_enabled =
-      pbgl.tex[i].flags.texture_1d ||
-      pbgl.tex[i].flags.texture_2d;
+    const GLboolean tex_enabled = tu->flags.texture_1d || tu->flags.texture_2d;
     if (tu->enabled && tex_enabled) {
       enable = NV_TEX_ENABLE;
       if (pbgl.flags.alpha_test)
@@ -154,18 +152,20 @@ static inline GLuint *flush_texunit(GLuint *p, const GLuint i) {
       enable = NV_TEX_DISABLE;
     }
 
+    const GLuint tidx = i * 64;
     if (tu->tex && enable != NV_TEX_DISABLE) {
       // note: we only operate on swizzled textures
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), enable);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_OFFSET(i), tu->tex->nv.addr);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FORMAT(i), tu->tex->nv.format);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_PITCH(i), tu->tex->pitch << 16);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_NPOT_SIZE(i), (tu->tex->width << 16) | tu->tex->height);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_FILTER(i), tu->tex->nv.filter);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_WRAP(i), tu->tex->nv.wrap);
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_MATRIX_ENABLE(i), GL_TRUE);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_OFFSET + tidx, tu->tex->nv.addr);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_FORMAT + tidx, tu->tex->nv.format);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_ADDRESS + tidx, tu->tex->nv.wrap);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_CONTROL0 + tidx, enable |
+        PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MIN_LOD_CLAMP, 0) |
+        PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MAX_LOD_CLAMP, tu->tex->mipmax - 1));
+      p = push_command_parameter(p, NV097_SET_TEXTURE_FILTER + tidx, tu->tex->nv.filter);
+      p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, GL_TRUE);
     } else {
-      p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_MATRIX_ENABLE(i), GL_FALSE);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_CONTROL0 + tidx, NV_TEX_DISABLE);
+      p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, GL_FALSE);
     }
 
     tu->dirty = GL_FALSE;
