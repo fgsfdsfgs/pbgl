@@ -144,7 +144,7 @@ GL_API void glPopMatrix(void) {
   if (s->ptr <= 0)
     pbgl_set_error(GL_STACK_OVERFLOW);
   else
-    pbgl.mtx[pbgl.mtx_current].mtx = s->data[s->ptr--];
+    pbgl.mtx[pbgl.mtx_current].mtx = s->data[--s->ptr];
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
