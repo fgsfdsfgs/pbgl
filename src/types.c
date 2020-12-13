@@ -14,8 +14,7 @@ const mat4f mat4_identity = {
   }
 };
 
-mat4f *mat4_mul(mat4f *c, const mat4f *a, const mat4f *b) {
-  /* FIXME: alignment required
+mat4f *mat4_mul_sse(mat4f *c, const mat4f *a, const mat4f *b) {
   __m128 row[4], sum[4];
   row[0] = _mm_load_ps(a->m[0]);
   row[1] = _mm_load_ps(a->m[1]);
@@ -32,8 +31,10 @@ mat4f *mat4_mul(mat4f *c, const mat4f *a, const mat4f *b) {
   _mm_store_ps(c->m[1], sum[1]);
   _mm_store_ps(c->m[2], sum[2]);
   _mm_store_ps(c->m[3], sum[3]);
-  */
+  return c;
+}
 
+mat4f *mat4_mul(mat4f *c, const mat4f *a, const mat4f *b) {
   const float a00 = a->v[ 0], a01 = a->v[ 1], a02 = a->v[ 2], a03 = a->v[ 3],
               a10 = a->v[ 4], a11 = a->v[ 5], a12 = a->v[ 6], a13 = a->v[ 7],
               a20 = a->v[ 8], a21 = a->v[ 9], a22 = a->v[10], a23 = a->v[11],

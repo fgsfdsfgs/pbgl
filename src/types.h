@@ -36,6 +36,7 @@ extern const mat4f mat4_identity;
 extern const mat4f mat4_zero;
 
 void mat4_viewport(mat4f *m, float x, float y, float w, float h, float znear, float zfar);
+mat4f *mat4_mul_sse(mat4f *c, const mat4f *a, const mat4f *b); // requires 16 byte alignment
 mat4f *mat4_mul(mat4f *c, const mat4f *a, const mat4f *b);
 mat4f *mat4_invert(mat4f *out, const mat4f *m);
 

@@ -791,17 +791,18 @@ GL_API void glTexParameteri(GLenum target, GLenum pname, GLint param) {
 
   texture_t *tex = pbgl.tex[pbgl.active_tex_sv].tex;
   if (!tex || tex->target != target) {
-    pbgl_set_error(GL_INVALID_OPERATION);
+    // apparently this should cause a silent no-op
     return;
   }
 
   switch (pname) {
-    case GL_TEXTURE_MIN_FILTER: tex->gl.min_filter = param; break;
-    case GL_TEXTURE_MAG_FILTER: tex->gl.mag_filter = param; break;
-    case GL_TEXTURE_WRAP_S:     tex->gl.wrap_s = param; break;
-    case GL_TEXTURE_WRAP_T:     tex->gl.wrap_t = param; break;
-    case GL_TEXTURE_WRAP_R:     tex->gl.wrap_r = param; break;
-    case GL_GENERATE_MIPMAP:    tex->gl.gen_mipmap = param; break;
+    case GL_TEXTURE_MIN_FILTER:         tex->gl.min_filter = param; break;
+    case GL_TEXTURE_MAG_FILTER:         tex->gl.mag_filter = param; break;
+    case GL_TEXTURE_WRAP_S:             tex->gl.wrap_s = param; break;
+    case GL_TEXTURE_WRAP_T:             tex->gl.wrap_t = param; break;
+    case GL_TEXTURE_WRAP_R:             tex->gl.wrap_r = param; break;
+    case GL_GENERATE_MIPMAP:            tex->gl.gen_mipmap = param; break;
+    case GL_TEXTURE_MAX_ANISOTROPY_EXT: break; // TODO
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
