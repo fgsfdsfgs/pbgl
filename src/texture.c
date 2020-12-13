@@ -432,24 +432,58 @@ static inline GLboolean tex_realloc(texture_t *tex) {
   return GL_TRUE;
 }
 
-static void tex_build_mips(texture_t *tex) {
-  for (GLuint level = tex->mipcount; level < tex->mipmax; ++level, ++tex->mipcount) {
-    const GLuint out_width = tex->mips[level].width;
-    const GLuint out_height = tex->mips[level].height;
-    const GLuint bytespp = tex->bytespp;
-    const GLuint in_pitch = tex->mips[level - 1].pitch;
-    const GLubyte *in = tex->mips[level - 1].data;
-    GLubyte *out = tex->mips[level].data;
-    // FIXME: this is not RGB555/RGB565/RGBA5551 aware
-    for (GLuint y = 0; y < out_height; ++y, in += in_pitch) {
-      const GLubyte *inp = in;
-      for (GLuint x = 0; x < out_width; ++x, out += bytespp, inp += bytespp) {
-        // take four samples from the previous level and average them
-        for (GLuint i = 0; i < bytespp; ++i)
-          out[i] = (inp[i] + inp[i + bytespp] + inp[i + in_pitch] + inp[i + in_pitch + bytespp]) >> 2;
-      }
+static inline void tex_mip_width(GLubyte *out, GLuint out_size, const GLubyte *in, GLuint bytespp) {
+  for (GLuint i = 0; i < out_size; i += bytespp, out += bytespp, in += bytespp * 2) {
+    for (GLuint b = 0; b < bytespp; ++b)
+      out[b] = (in[b] + in[b + bytespp]) >> 1;
+  }
+}
+
+static inline void tex_mip_height(GLubyte *out, GLuint out_pitch, GLuint out_h, const GLubyte *in, GLuint bytespp) {
+  for (GLuint i = 0; i < out_h; i++, in += out_pitch) {
+    for (GLuint j = 0; j < out_pitch; j += bytespp, out += bytespp, in += bytespp) {
+      for (GLuint b = 0; b < bytespp; ++b)
+        out[b] = (in[b] + in[out_pitch + b]) >> 1;
     }
   }
+}
+
+static void tex_build_mips(texture_t *tex, GLubyte *data, const GLboolean in_place) {
+  GLubyte *buf;
+  const GLubyte *in;
+  if (in_place) {
+    // use the input buffer for output as well
+    in = data;
+    buf = data;
+  } else {
+    // allocate a temp out buffer
+    buf = malloc(tex->size >> 1);
+    if (!buf) {
+      pbgl_set_error(GL_OUT_OF_MEMORY);
+      return;
+    }
+    in = data;
+  }
+
+  for (GLuint level = tex->mipcount; level < tex->mipmax; ++level, ++tex->mipcount) {
+    const GLuint bytespp = tex->bytespp;
+    const GLuint out_pitch = tex->mips[level].pitch;
+    const GLuint out_w = tex->mips[level].width;
+    const GLuint out_h = tex->mips[level].height;
+    const GLuint in_pitch = tex->mips[level - 1].pitch;
+    // FIXME: this is not RGB555/RGB565/RGBA5551 aware
+    // scronch down the width
+    tex_mip_width(buf, tex->mips[level].size << 1, in, bytespp);
+    // scronch down the height
+    tex_mip_height(buf, out_pitch, out_h, buf, bytespp);
+    // swizzle the fucker
+    swizzle_rect(buf, out_w, out_h, tex->mips[level].data, out_pitch, bytespp);
+    // make sure we're using the previous buffer as input
+    in = buf;
+  }
+
+  if (!in_place) free(buf);
+
   // update nv parameters since mipcount has changed
   tex_gl_to_nv(tex);
 }
@@ -694,7 +728,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     tex_store(tex, data, fmt, data_bytespp, level, 0, 0, width, height, reverse);
     if (tex->gl.gen_mipmap && level == 0) {
       // generate mipmaps if needed
-      tex_build_mips(tex);
+      tex_build_mips(tex, (GLubyte *)data, GL_FALSE);
     }
   }
 }
@@ -856,7 +890,20 @@ GL_API void glGenerateMipmap(GLenum target) {
     }
   }
 
-  tex_build_mips(tex);
+  // unswizzle texture data
+  const GLuint level = tex->mipcount - 1;
+  GLubyte *tmp = malloc(tex->mips[level].size);
+  if (!tmp) {
+    pbgl_set_error(GL_OUT_OF_MEMORY);
+    return;
+  }
+
+  unswizzle_rect(tex->mips[level].data, tex->mips[level].width, tex->mips[level].height, tmp, tex->mips[level].pitch, tex->bytespp);
+
+  // build mips in place since we own the buffer
+  tex_build_mips(tex, tmp, GL_TRUE);
+
+  free(tmp);
 
   pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
 }
