@@ -55,10 +55,19 @@ static inline GLuint *array_set_data_format(GLuint *p, const GLuint idx, const G
 }
 
 static inline GLuint *array_flush(GLuint *p, const varray_state_t *arr, const GLuint target)  {
-  const GLuint nvtype = gltype_to_nvtype(arr->type);
-  if (nvtype) {
-    p = array_set_data_format(p, target, nvtype, arr->size, arr->stride);
-    p = push_command_parameter(p, NV097_SET_VERTEX_DATA_ARRAY_OFFSET + target * 4, (GLuint)arr->data & 0x03FFFFF);
+  if (arr->enabled) {
+    const GLuint nvtype = gltype_to_nvtype(arr->type);
+    if (nvtype) {
+      p = array_set_data_format(p, target, nvtype, arr->size, arr->stride);
+      p = push_command_parameter(p, NV097_SET_VERTEX_DATA_ARRAY_OFFSET + target * 4, (GLuint)arr->data & 0x03FFFFF);
+    }
+  } else {
+    // if the array is disabled, make sure we set the current value at least
+    p = push_command(p, NV097_SET_VERTEX_DATA4F_M + target * 4 * 4, 4);
+    p = push_float(p, arr->value.x);
+    p = push_float(p, arr->value.y);
+    p = push_float(p, arr->value.z);
+    p = push_float(p, arr->value.w);
   }
   return p;
 }
@@ -129,7 +138,7 @@ void pbgl_array_flush_all(void) {
   GLuint *p = pb_begin();
 
   // set the "regular" arrays
-  for (GLuint i = 0; i < VARR_COUNT; ++i) {
+  for (GLuint i = 1; i < VARR_COUNT; ++i) {
     // TODO: maybe structure the varray array better so we wouldn't have to do this shit
     if (i == VARR_TEXCOORD) continue;
     p = array_flush(p, &pbgl.varray[i], varr_to_nvarr(i));
@@ -171,7 +180,7 @@ GL_API void glFogCoordPointer(GLenum type, GLsizei stride, const void *pointer) 
 }
 
 GL_API void glDrawArrays(GLenum prim, GLint first, GLsizei count) {
-  if (pbgl.imm.active) {
+  if (pbgl.imm.active || !count) {
     pbgl_set_error(GL_INVALID_OPERATION);
     return;
   }
@@ -212,7 +221,7 @@ GL_API void glDrawArrays(GLenum prim, GLint first, GLsizei count) {
 }
 
 GL_API void glDrawElements(GLenum prim, GLsizei count, GLenum idxtype, const void *indices) {
-  if (pbgl.imm.active) {
+  if (pbgl.imm.active || !count) {
     pbgl_set_error(GL_INVALID_OPERATION);
     return;
   }

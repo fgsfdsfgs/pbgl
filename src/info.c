@@ -102,10 +102,10 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
     case GL_STENCIL_FUNC:               *params = pbgl.stencil.func + 0x200; break;
     case GL_TEXTURE_STACK_DEPTH:        *params = pbgl_mtx_stack_depth(MTX_TEXTURE); break;
     case GL_CURRENT_COLOR:
-      params[0] = pbgl.imm.color.r * 255.f;
-      params[1] = pbgl.imm.color.g * 255.f;
-      params[2] = pbgl.imm.color.b * 255.f;
-      params[3] = pbgl.imm.color.a * 255.f;
+      params[0] = pbgl.varray[VARR_COLOR1].value.r * 255.f;
+      params[1] = pbgl.varray[VARR_COLOR1].value.g * 255.f;
+      params[2] = pbgl.varray[VARR_COLOR1].value.b * 255.f;
+      params[3] = pbgl.varray[VARR_COLOR1].value.a * 255.f;
       break;
     default:
       // HACK: this should work cause it will set the first byte
@@ -117,24 +117,24 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
 GL_API void glGetFloatv(GLenum pname, GLfloat *params) {
   switch (pname) {
     case GL_CURRENT_COLOR:
-      params[0] = pbgl.imm.color.r;
-      params[1] = pbgl.imm.color.g;
-      params[2] = pbgl.imm.color.b;
-      params[3] = pbgl.imm.color.a;
+      params[0] = pbgl.varray[VARR_COLOR1].value.r;
+      params[1] = pbgl.varray[VARR_COLOR1].value.g;
+      params[2] = pbgl.varray[VARR_COLOR1].value.b;
+      params[3] = pbgl.varray[VARR_COLOR1].value.a;
       break;
     case GL_CURRENT_FOG_COORD:
-      params[0] = pbgl.imm.fogcoord;
+      params[0] = pbgl.varray[VARR_FOG].value.x;
       break;
     case GL_CURRENT_NORMAL:
-      params[0] = pbgl.imm.normal.x;
-      params[1] = pbgl.imm.normal.y;
-      params[2] = pbgl.imm.normal.z;
+      params[0] = pbgl.varray[VARR_NORMAL].value.x;
+      params[1] = pbgl.varray[VARR_NORMAL].value.y;
+      params[2] = pbgl.varray[VARR_NORMAL].value.z;
       break;
     case GL_CURRENT_TEXTURE_COORDS:
-      params[0] = pbgl.imm.texcoord.x;
-      params[1] = pbgl.imm.texcoord.y;
-      params[2] = pbgl.imm.texcoord.z;
-      params[3] = pbgl.imm.texcoord.w;
+      params[0] = pbgl.varray[VARR_TEXCOORD].value.x;
+      params[1] = pbgl.varray[VARR_TEXCOORD].value.y;
+      params[2] = pbgl.varray[VARR_TEXCOORD].value.z;
+      params[3] = pbgl.varray[VARR_TEXCOORD].value.w;
       break;
     case GL_MODELVIEW_MATRIX:
       memcpy(params, pbgl.mtx[MTX_MODELVIEW].mtx.v, sizeof(GLfloat) * 16);

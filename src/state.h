@@ -36,6 +36,7 @@ typedef struct {
   GLsizei size;
   GLsizei stride;
   const GLubyte *data;
+  vec4f value;
 } varray_state_t;
 
 typedef struct {
@@ -133,7 +134,6 @@ typedef struct {
   } flags;
   GLboolean enabled;
   GLboolean dirty;
-  vec4f texcoord;
   varray_state_t varray; // texcoord array
   texture_t *tex; // TODO: need separate targets for _1D, _2D, _3D
 } texunit_state_t;
@@ -177,11 +177,6 @@ typedef struct {
   GLenum prim;
   GLuint num;
   GLuint *ptr;
-  vec4f color;
-  vec4f color2;
-  vec4f texcoord;
-  vec3f normal;
-  GLfloat fogcoord;
   union {
     struct {
       GLuint color_flag : 1;

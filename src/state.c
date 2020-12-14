@@ -92,9 +92,9 @@ void pbgl_state_init(void) {
   pbgl.lightmodel.ambient = (vec4f){{ 0.2f, 0.2f, 0.2f, 1.0f }};
   pbgl.lightmodel.dirty = GL_TRUE;
 
-  pbgl.imm.color    = (vec4f) {{ 1.f, 1.f, 1.f, 1.f }};
-  pbgl.imm.normal   = (vec3f) {{ 0.f, 0.f, 1.f }};
-  pbgl.imm.texcoord = (vec4f) {{ 0.f, 0.f, 0.f, 1.f }};
+  pbgl.varray[VARR_COLOR1].value   = (vec4f) {{ 1.f, 1.f, 1.f, 1.f }};
+  pbgl.varray[VARR_NORMAL].value   = (vec4f) {{ 0.f, 0.f, 1.f, 0.f }};
+  pbgl.varray[VARR_TEXCOORD].value = (vec4f) {{ 0.f, 0.f, 0.f, 1.f }};
 
   for (int i = 0; i < TEXUNIT_COUNT; ++i) {
     pbgl.tex[i].dirty = GL_TRUE;
