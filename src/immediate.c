@@ -80,6 +80,7 @@ GL_API void glColor4f(GLfloat r, GLfloat g, GLfloat b, GLfloat a) {
   pbgl.varray[VARR_COLOR1].value.g = g;
   pbgl.varray[VARR_COLOR1].value.b = b;
   pbgl.varray[VARR_COLOR1].value.a = a;
+  pbgl.varray[VARR_COLOR1].dirty = GL_TRUE;
 }
 
 GL_API void glColor4fv(const GLfloat *v) {
@@ -116,6 +117,7 @@ GL_API void glSecondaryColor4f(GLfloat r, GLfloat g, GLfloat b, GLfloat a) {
   pbgl.varray[VARR_COLOR2].value.g = g;
   pbgl.varray[VARR_COLOR2].value.b = b;
   pbgl.varray[VARR_COLOR2].value.a = a;
+  pbgl.varray[VARR_COLOR2].dirty = GL_TRUE;
 }
 
 GL_API void glSecondaryColor4ub(GLubyte r, GLubyte g, GLubyte b, GLubyte a) {
@@ -136,6 +138,7 @@ GL_API void glTexCoord4f(GLfloat s, GLfloat t, GLfloat r, GLfloat q) {
   pbgl.varray[VARR_TEXCOORD].value.y = t;
   pbgl.varray[VARR_TEXCOORD].value.z = r;
   pbgl.varray[VARR_TEXCOORD].value.w = q;
+  pbgl.varray[VARR_TEXCOORD].dirty = GL_TRUE;
 }
 
 GL_API void glTexCoord3f(GLfloat s, GLfloat t, GLfloat r) {
@@ -177,6 +180,7 @@ GL_API void glMultiTexCoord4f(GLenum unit, GLfloat s, GLfloat t, GLfloat r, GLfl
   pbgl.tex[unit].varray.value.y = t;
   pbgl.tex[unit].varray.value.z = r;
   pbgl.tex[unit].varray.value.w = q;
+  pbgl.tex[unit].varray.dirty = GL_TRUE;
 }
 
 GL_API void glMultiTexCoord3f(GLenum unit, GLfloat s, GLfloat t, GLfloat r) {
@@ -192,6 +196,7 @@ GL_API void glNormal3f(GLfloat x, GLfloat y, GLfloat z) {
   pbgl.varray[VARR_NORMAL].value.x = x;
   pbgl.varray[VARR_NORMAL].value.y = y;
   pbgl.varray[VARR_NORMAL].value.z = z;
+  pbgl.varray[VARR_NORMAL].dirty = GL_TRUE;
 }
 
 GL_API void glNormal3fv(const GLfloat *v) {

@@ -3,17 +3,18 @@
 #include <pbkit/pbkit.h>
 #include <x86intrin.h>
 
+#define GL_GLEXT_PROTOTYPES
 #include "GL/gl.h"
 #include "GL/glext.h"
 #include "types.h"
 #include "error.h"
 #include "state.h"
 #include "misc.h"
+#include "pbgl.h"
 #include "swizzle.h"
 #include "texture.h"
 
 #define TEX_ALLOC_STEP 256
-#define TEX_MAXRAM 0x03FFAFFF
 
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_WRAP          1
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_MIRROR        2
@@ -249,67 +250,6 @@ static inline void aligned_copy(void *dst, const void *src, const GLuint len) {
     memcpy_sse((GLubyte *)dst, (const GLubyte *)src, len);
 }
 
-static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint bytespp, GLuint level, GLuint x, GLuint y, GLuint w, GLuint h, GLboolean reverse) {
-  GLubyte *out = (GLubyte *)tex->mips[level].data;
-
-  if (tex->bytespp == bytespp && !reverse) {
-    // no need for conversion
-    if (x || y)
-      swizzle_rect_offset(data, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
-    else
-      swizzle_rect(data, w, h, out, tex->mips[level].pitch, tex->bytespp);
-    return;
-  }
-
-  // allocate temporary buffer for conversion
-  GLubyte *tmp = malloc(tex->mips[level].size);
-  if (!tmp) {
-    pbgl_set_error(GL_OUT_OF_MEMORY);
-    return;
-  }
-
-  // convert
-
-  const GLubyte *src = data;
-  GLubyte *dst = tmp;
-
-  if ((bytespp > 2) && (tex->gl.baseformat == GL_RGB || tex->gl.baseformat == GL_RGBA) && (fmt == GL_RGB || fmt == GL_RGBA)) {
-    // 3 or 4 bytes per pixel and it's either RGBA->RGB or RGB->RGBA or RGB->(X)RGB (can't be RGBA->RGBA because that's handled above)
-    // RGB is a special case: internally RGB is XRGB
-    for (GLuint i = 0; i < w * h; ++i) {
-      dst[0] = src[2];
-      dst[1] = src[1];
-      dst[2] = src[0];
-      dst[3] = 0xFF;
-      dst += tex->bytespp;
-      src += bytespp;
-    }
-  } else {
-    // TODO: unimplemented
-  }
-
-  // upload converted texture
-  if (x || y)
-    swizzle_rect_offset(tmp, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
-  else
-    swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
-
-  // free temp buffer
-  free(tmp);
-}
-
-static inline void tex_init(texture_t *tex, GLuint dim, GLuint w, GLuint h, GLuint d) {
-  tex->dimensions = dim;
-  tex->width = w;
-  tex->height = h;
-  tex->depth = d;
-  tex->bytespp = intfmt_bytespp(tex->gl.format);
-  tex->pitch = tex->bytespp * tex->width;
-  tex->zpitch = tex->pitch * tex->height;
-  tex->mipcount = 0;
-  tex->mipmax = 1; // there's always at least one mip
-}
-
 static inline GLboolean tex_gl_to_nv(texture_t *tex) {
   const GLuint fmt = intfmt_gl_to_nv(tex->gl.format);
 
@@ -354,80 +294,6 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
     0xA; /* dma context and other shit here, presumably */
 
   tex->nv.addr = (GLuint)tex->data & 0x03FFFFFF;
-
-  return GL_TRUE;
-}
-
-static GLboolean tex_alloc(texture_t *tex) {
-  if (tex->mipmap && (tex->width > 1 || tex->height > 1)) {
-    GLuint width = tex->width;
-    GLuint height = tex->height;
-    GLuint level = 0;
-    GLubyte *ofs = NULL;
-    tex->size = 0;
-    while (width > 1 || height > 1) {
-      tex->mips[level].width = width;
-      tex->mips[level].height = height;
-      tex->mips[level].pitch = tex->bytespp * width;
-      tex->mips[level].size = tex->mips[level].pitch * height;
-      tex->mips[level].data = ofs;
-      ofs += tex->mips[level].size;
-      tex->size += tex->mips[level].size;
-      level++;
-      width = umax((width >> 1), 1);
-      height = umax((height >> 1), 1);
-    }
-    tex->mipmax = level;
-  } else {
-    tex->size = tex->pitch * tex->height;
-    tex->mips[0].width = tex->width;
-    tex->mips[0].height = tex->height;
-    tex->mips[0].pitch = tex->pitch;
-    tex->mips[0].size = tex->size;
-    tex->mips[0].data = NULL;
-    tex->mipmax = 1;
-  }
-
-  tex->data = MmAllocateContiguousMemoryEx(tex->size, 0, TEX_MAXRAM, TEX_ALIGN, 0x404);
-  if (!tex->data) {
-    pbgl_set_error(GL_OUT_OF_MEMORY);
-    return GL_FALSE;
-  }
-
-  // turn miplevel offsets into pointers
-  for (GLuint i = 0; i < tex->mipmax; ++i)
-    tex->mips[i].data += (GLuint)tex->data;
-
-  tex->allocated = GL_TRUE;
-
-  return GL_TRUE;
-}
-
-static inline void tex_free(texture_t *tex) {
-  if (tex->bound) glFinish(); // wait until texture is not used
-  if (tex->data) MmFreeContiguousMemory(tex->data);
-  memset(tex, 0, sizeof(*tex));
-}
-
-static inline GLboolean tex_realloc(texture_t *tex) {
-  // move the texture off to the heap to reduce contiguous memory fragmentation
-  void *copy = malloc(tex->size);
-  if (!copy) return GL_FALSE;
-
-  aligned_copy(copy, tex->data, tex->size);
-
-  // realloc
-  MmFreeContiguousMemory(tex->data);
-  tex->data = NULL;
-  if (!tex_alloc(tex)) {
-    free(copy);
-    return GL_FALSE;
-  }
-
-  // restore the texture
-  aligned_copy(tex->data, copy, tex->mips[0].size);
-
-  free(copy);
 
   return GL_TRUE;
 }
@@ -486,6 +352,149 @@ static void tex_build_mips(texture_t *tex, GLubyte *data, const GLboolean in_pla
 
   // update nv parameters since mipcount has changed
   tex_gl_to_nv(tex);
+}
+
+static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint bytespp, GLuint level, GLuint x, GLuint y, GLuint w, GLuint h, GLboolean reverse, GLboolean genmips) {
+  GLubyte *out = (GLubyte *)tex->mips[level].data;
+
+  if (tex->bytespp == bytespp && !reverse) {
+    // no need for conversion
+    if (x || y)
+      swizzle_rect_offset(data, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
+    else
+      swizzle_rect(data, w, h, out, tex->mips[level].pitch, tex->bytespp);
+    // if requested, build mipmaps starting from the current level
+    if (genmips)
+      tex_build_mips(tex, (GLubyte *)data, GL_FALSE);
+    return;
+  }
+
+  // allocate temporary buffer for conversion
+  GLubyte *tmp = malloc(tex->mips[level].size);
+  if (!tmp) {
+    pbgl_set_error(GL_OUT_OF_MEMORY);
+    return;
+  }
+
+  // convert
+
+  const GLubyte *src = data;
+  GLubyte *dst = tmp;
+
+  if ((bytespp > 2) && (tex->gl.baseformat == GL_RGB || tex->gl.baseformat == GL_RGBA) && (fmt == GL_RGB || fmt == GL_RGBA)) {
+    // 3 or 4 bytes per pixel and it's either RGBA->RGB or RGB->RGBA or RGB->(X)RGB (can't be RGBA->RGBA because that's handled above)
+    // RGB is a special case: internally RGB is XRGB
+    for (GLuint i = 0; i < w * h; ++i) {
+      dst[0] = src[2];
+      dst[1] = src[1];
+      dst[2] = src[0];
+      dst[3] = 0xFF;
+      dst += tex->bytespp;
+      src += bytespp;
+    }
+  } else {
+    // TODO: unimplemented
+  }
+
+  // upload converted texture
+  if (x || y)
+    swizzle_rect_offset(tmp, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
+  else
+    swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
+
+  // if requested, build mipmaps starting from the current level
+  // we can do it in place in the `tmp` buffer, since we own it
+  if (genmips)
+    tex_build_mips(tex, tmp, GL_TRUE);
+
+  // free temp buffer
+  free(tmp);
+}
+
+static inline void tex_init(texture_t *tex, GLuint dim, GLuint w, GLuint h, GLuint d) {
+  tex->dimensions = dim;
+  tex->width = w;
+  tex->height = h;
+  tex->depth = d;
+  tex->bytespp = intfmt_bytespp(tex->gl.format);
+  tex->pitch = tex->bytespp * tex->width;
+  tex->zpitch = tex->pitch * tex->height;
+  tex->mipcount = 0;
+  tex->mipmax = 1; // there's always at least one mip
+}
+
+static GLboolean tex_alloc(texture_t *tex) {
+  if (tex->mipmap && (tex->width > 1 || tex->height > 1)) {
+    GLuint width = tex->width;
+    GLuint height = tex->height;
+    GLuint level = 0;
+    GLubyte *ofs = NULL;
+    tex->size = 0;
+    while (width > 1 || height > 1) {
+      tex->mips[level].width = width;
+      tex->mips[level].height = height;
+      tex->mips[level].pitch = tex->bytespp * width;
+      tex->mips[level].size = tex->mips[level].pitch * height;
+      tex->mips[level].data = ofs;
+      ofs += tex->mips[level].size;
+      tex->size += tex->mips[level].size;
+      level++;
+      width = umax((width >> 1), 1);
+      height = umax((height >> 1), 1);
+    }
+    tex->mipmax = level;
+  } else {
+    tex->size = tex->pitch * tex->height;
+    tex->mips[0].width = tex->width;
+    tex->mips[0].height = tex->height;
+    tex->mips[0].pitch = tex->pitch;
+    tex->mips[0].size = tex->size;
+    tex->mips[0].data = NULL;
+    tex->mipmax = 1;
+  }
+
+  tex->data = MmAllocateContiguousMemoryEx(tex->size, 0, PBGL_MAXRAM, TEX_ALIGN, 0x404);
+  if (!tex->data) {
+    pbgl_set_error(GL_OUT_OF_MEMORY);
+    return GL_FALSE;
+  }
+
+  // turn miplevel offsets into pointers
+  for (GLuint i = 0; i < tex->mipmax; ++i)
+    tex->mips[i].data += (GLuint)tex->data;
+
+  tex->allocated = GL_TRUE;
+
+  return GL_TRUE;
+}
+
+static inline void tex_free(texture_t *tex) {
+  if (tex->bound) glFinish(); // wait until texture is not used
+  if (tex->data) MmFreeContiguousMemory(tex->data);
+  memset(tex, 0, sizeof(*tex));
+}
+
+static inline GLboolean tex_realloc(texture_t *tex) {
+  // move the texture off to the heap to reduce contiguous memory fragmentation
+  void *copy = malloc(tex->size);
+  if (!copy) return GL_FALSE;
+
+  aligned_copy(copy, tex->data, tex->size);
+
+  // realloc
+  MmFreeContiguousMemory(tex->data);
+  tex->data = NULL;
+  if (!tex_alloc(tex)) {
+    free(copy);
+    return GL_FALSE;
+  }
+
+  // restore the texture
+  aligned_copy(tex->data, copy, tex->mips[0].size);
+
+  free(copy);
+
+  return GL_TRUE;
 }
 
 GLboolean pbgl_tex_init(void) {
@@ -725,11 +734,9 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
 
   if (data != NULL) {
     // upload data if provided
-    tex_store(tex, data, fmt, data_bytespp, level, 0, 0, width, height, reverse);
-    if (tex->gl.gen_mipmap && level == 0) {
-      // generate mipmaps if needed
-      tex_build_mips(tex, (GLubyte *)data, GL_FALSE);
-    }
+    const GLboolean generate_mips = (level == 0 && tex->gl.gen_mipmap);
+    tex_store(tex, data, fmt, data_bytespp, level, 0, 0, width, height, reverse, generate_mips);
+    // this will also generate mips if required
   }
 }
 
@@ -778,7 +785,7 @@ GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, 
 
   if (data != NULL) {
     // upload data if provided
-    tex_store(tex, data, format, data_bytespp, level, xoff, yoff, width, height, reverse);
+    tex_store(tex, data, format, data_bytespp, level, xoff, yoff, width, height, reverse, GL_FALSE);
     // pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
   }
 }

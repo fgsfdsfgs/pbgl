@@ -95,6 +95,8 @@ void pbgl_state_init(void) {
   pbgl.varray[VARR_COLOR1].value   = (vec4f) {{ 1.f, 1.f, 1.f, 1.f }};
   pbgl.varray[VARR_NORMAL].value   = (vec4f) {{ 0.f, 0.f, 1.f, 0.f }};
   pbgl.varray[VARR_TEXCOORD].value = (vec4f) {{ 0.f, 0.f, 0.f, 1.f }};
+  for (int i = 0; i < VARR_COUNT; ++i)
+    pbgl.varray[i].dirty = GL_TRUE;
 
   for (int i = 0; i < TEXUNIT_COUNT; ++i) {
     pbgl.tex[i].dirty = GL_TRUE;
@@ -450,10 +452,13 @@ static inline void set_client_state(GLenum state, GLboolean value) {
     return;
   }
 
-  if (arr == VARR_TEXCOORD)
+  if (arr == VARR_TEXCOORD) {
     pbgl.tex[pbgl.active_tex_cl].varray.enabled = value;
+    pbgl.tex[pbgl.active_tex_cl].varray.dirty = GL_TRUE;
+  }
 
   pbgl.varray[arr].enabled = value;
+  pbgl.varray[arr].dirty = GL_TRUE;
 }
 
 /* GL FUNCTIONS BEGIN */

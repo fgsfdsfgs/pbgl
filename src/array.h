@@ -8,13 +8,13 @@
 #define ARRAY_NV_COUNT 16
 
 enum varray_e {
-  VARR_INDEX,    // TODO: color index
   VARR_POSITION,
   VARR_NORMAL,
-  VARR_TEXCOORD, // each texunit has its own varray
   VARR_COLOR1,
   VARR_COLOR2,
   VARR_FOG,
+
+  VARR_TEXCOORD, // each texunit has its own varray
 
   VARR_COUNT
 };

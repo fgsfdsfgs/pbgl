@@ -32,6 +32,7 @@ typedef union {
 
 typedef struct {
   GLboolean enabled;
+  GLboolean dirty;
   GLenum type;
   GLsizei size;
   GLsizei stride;

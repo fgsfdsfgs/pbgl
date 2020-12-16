@@ -12,13 +12,12 @@
 
 static inline GLuint varr_to_nvarr(const GLenum arr) {
   static const GLuint arrmap[] = {
-    0,                         // VARR_INDEX // TODO
     NV2A_VERTEX_ATTR_POSITION, // VARR_POSITION
     NV2A_VERTEX_ATTR_NORMAL,   // VARR_NORMAL
-    NV2A_VERTEX_ATTR_TEXTURE0, // VARR_TEXCOORD
     NV2A_VERTEX_ATTR_DIFFUSE,  // VARR_COLOR1
     NV2A_VERTEX_ATTR_SPECULAR, // VARR_COLOR2
     NV2A_VERTEX_ATTR_FOG,      // VARR_FOG
+    NV2A_VERTEX_ATTR_TEXTURE0, // VARR_TEXCOORD
   };
   return arrmap[arr];
 }
@@ -45,25 +44,36 @@ static inline void array_set(const GLenum index, const GLenum type, const GLsize
   arr->size = size;
   arr->stride = stride;
   arr->data = data;
+  arr->dirty = GL_TRUE;
 }
 
-static inline GLuint *array_set_data_format(GLuint *p, const GLuint idx, const GLenum type, const GLuint size, const GLuint stride) {
-  return push_command_parameter(p, NV097_SET_VERTEX_DATA_ARRAY_FORMAT + idx * 4,
-    PBGL_MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE, type) |
+// all of these helper functions are basically taken from xgu/xgux
+
+static inline GLuint *array_push_format(GLuint *p, GLuint index, GLuint format, GLuint size, GLuint stride) {
+  return push_command_parameter(p, NV097_SET_VERTEX_DATA_ARRAY_FORMAT + index*4,
+    PBGL_MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE, format) |
     PBGL_MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_SIZE, size) |
     PBGL_MASK(NV097_SET_VERTEX_DATA_ARRAY_FORMAT_STRIDE, stride));
 }
 
-static inline GLuint *array_flush(GLuint *p, const varray_state_t *arr, const GLuint target)  {
+static inline GLuint *array_push_offset(GLuint *p, GLuint index, const void *data) {
+  return push_command_parameter(p, NV097_SET_VERTEX_DATA_ARRAY_OFFSET + index*4, (GLuint)data);
+}
+
+static inline GLuint *array_set_attrib_pointer(GLuint *p, GLuint index, GLuint format, GLuint size, GLuint stride, const void *data) {
+  p = array_push_format(p, index, format, size, stride);
+  p = array_push_offset(p, index, (const void *)((GLuint)data & 0x03FFFFFF));
+  return p;
+}
+
+static inline GLuint *array_flush(GLuint *p, const varray_state_t *arr, const GLuint nvtarget)  {
   if (arr->enabled) {
     const GLuint nvtype = gltype_to_nvtype(arr->type);
-    if (nvtype) {
-      p = array_set_data_format(p, target, nvtype, arr->size, arr->stride);
-      p = push_command_parameter(p, NV097_SET_VERTEX_DATA_ARRAY_OFFSET + target * 4, (GLuint)arr->data & 0x03FFFFF);
-    }
+    p = array_set_attrib_pointer(p, nvtarget, nvtype, arr->size, arr->stride, arr->data);
   } else {
-    // if the array is disabled, make sure we set the current value at least
-    p = push_command(p, NV097_SET_VERTEX_DATA4F_M + target * 4 * 4, 4);
+    // if the array is disabled or invalid, make sure we set the current value at least
+    p = array_set_attrib_pointer(p, nvtarget, NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE_F, 0, 0, NULL);
+    p = push_command(p, NV097_SET_VERTEX_DATA4F_M + nvtarget * 4 * 4, 4);
     p = push_float(p, arr->value.x);
     p = push_float(p, arr->value.y);
     p = push_float(p, arr->value.z);
@@ -71,8 +81,6 @@ static inline GLuint *array_flush(GLuint *p, const varray_state_t *arr, const GL
   }
   return p;
 }
-
-// these are basically taken from xgux
 
 static inline GLuint *push_elements16(GLuint *p, const GLushort *elements, const GLuint count) {
   p = push_command(p, 0x40000000 | NV097_ARRAY_ELEMENT16, count / 2);
@@ -84,6 +92,12 @@ static inline GLuint *push_elements32(GLuint *p, const GLuint *elements, const G
   p = push_command(p, 0x40000000 | NV097_ARRAY_ELEMENT32, count);
   memcpy(p, elements, count * sizeof(GLuint));
   return p + count;
+}
+
+static inline GLuint *push_draw_arrays(GLuint *p, GLuint start, GLuint count) {
+  return push_command_parameter(p, 0x40000000 | NV097_DRAW_ARRAYS,
+    PBGL_MASK(NV097_DRAW_ARRAYS_COUNT, (count-1)) |
+    PBGL_MASK(NV097_DRAW_ARRAYS_START_INDEX, start));
 }
 
 static inline GLuint *draw_elements16(GLuint *p, const GLushort *elements, GLuint count) {
@@ -121,33 +135,46 @@ static inline GLuint *draw_elements32(GLuint *p, const GLuint *elements, GLuint 
   return p;
 }
 
+static inline GLuint *draw_arrays(GLuint *p, GLuint start, GLuint count) {
+  while (count > 0) {
+    pb_end(p);
+    p = pb_begin();
+    const GLuint batch_count = imin(count, ARRAY_MAX_BATCH);
+    p = push_draw_arrays(p, start, batch_count);
+    start += batch_count;
+    count -= batch_count;
+  }
+  return p;
+}
+
 /* pbgl internals */
 
 void pbgl_array_reset_all(void) {
   GLuint *p = pb_begin();
   for(GLuint i = 0; i < ARRAY_NV_COUNT; i++)
-    p = array_set_data_format(p, i, NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE_F, 0, 0);
+    p = array_set_attrib_pointer(p, i, NV097_SET_VERTEX_DATA_ARRAY_FORMAT_TYPE_F, 0, 0, NULL);
   pb_end(p);
 }
 
 void pbgl_array_flush_all(void) {
-  // reset all vertex attribs
-  pbgl_array_reset_all();
-
   // set the ones that are enabled, for ones that aren't specify current immediate value
+
   GLuint *p = pb_begin();
 
   // set the "regular" arrays
-  for (GLuint i = 1; i < VARR_COUNT; ++i) {
-    // TODO: maybe structure the varray array better so we wouldn't have to do this shit
-    if (i == VARR_TEXCOORD) continue;
-    p = array_flush(p, &pbgl.varray[i], varr_to_nvarr(i));
+  for (GLuint i = 0; i < VARR_TEXCOORD; ++i) {
+    if (pbgl.varray[i].dirty) {
+      p = array_flush(p, &pbgl.varray[i], varr_to_nvarr(i));
+      pbgl.varray[i].dirty = GL_FALSE;
+    }
   }
 
   // set the texcoord arrays
   for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
-    if (pbgl.tex[i].enabled)
+    if (pbgl.tex[i].enabled && pbgl.tex[i].varray.dirty) {
       p = array_flush(p, &pbgl.tex[i].varray, NV2A_VERTEX_ATTR_TEXTURE0 + i);
+      pbgl.tex[i].varray.dirty = GL_FALSE;
+    }
   }
 
   pb_end(p);
@@ -197,24 +224,10 @@ GL_API void glDrawArrays(GLenum prim, GLint first, GLsizei count) {
   pbgl_state_flush();
   pbgl_array_flush_all();
 
-  // this is basically xgux_draw_arrays
-
   GLuint *p = pb_begin();
   p = push_command_parameter(p, NV097_SET_BEGIN_END, prim);
 
-  while(count > 0) {
-    // start next batch
-    pb_end(p);
-    p = pb_begin();
-
-    const GLint batch_count = imin(count, ARRAY_MAX_BATCH);
-    p = push_command_parameter(p, 0x40000000 | NV097_DRAW_ARRAYS,
-      PBGL_MASK(NV097_DRAW_ARRAYS_COUNT, (count - 1)) |
-      PBGL_MASK(NV097_DRAW_ARRAYS_START_INDEX, first));
-
-    first += batch_count;
-    count -= batch_count;
-  }
+  p = draw_arrays(p, first, count);
 
   p = push_command_parameter(p, NV097_SET_BEGIN_END, NV097_SET_BEGIN_END_OP_END);
   pb_end(p);

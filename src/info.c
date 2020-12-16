@@ -47,7 +47,7 @@ GL_API void glGetBooleanv(GLenum pname, GLboolean *params) {
     case GL_DITHER:                *params = pbgl.flags.dither; break;
     case GL_FOG:                   *params = pbgl.flags.fog; break;
     case GL_FOG_COORD_ARRAY:       *params = pbgl.varray[VARR_FOG].enabled; break;
-    case GL_INDEX_ARRAY:           *params = pbgl.varray[VARR_INDEX].enabled; break;
+    // case GL_INDEX_ARRAY:           *params = pbgl.varray[VARR_INDEX].enabled; break;
     case GL_LIGHTING:              *params = pbgl.flags.lighting; break;
     case GL_NORMAL_ARRAY:          *params = pbgl.varray[VARR_NORMAL].enabled; break;
     case GL_POLYGON_OFFSET_FILL:   *params = pbgl.flags.poly_offset; break;
