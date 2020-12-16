@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 #include <pbkit/pbkit.h>
 
 #include "GL/gl.h"
@@ -154,6 +155,14 @@ void pbgl_swap_buffers(void) {
 
   pb_reset();
   pb_target_back_buffer();
+}
+
+void *pbgl_alloc(unsigned int size, int dynamic) {
+  return MmAllocateContiguousMemoryEx(size, 0, PBGL_MAXRAM, 0, dynamic ? 0x404 : 0x04);
+}
+
+void pbgl_free(void *addr) {
+  if (addr) MmFreeContiguousMemory(addr);
 }
 
 void pbgl_shutdown(void) {
