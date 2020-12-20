@@ -67,6 +67,19 @@ mat4f *mat4_mul(mat4f *c, const mat4f *a, const mat4f *b) {
   return c;
 }
 
+vec4f *mat4_mul_vec4(const mat4f *m, vec4f *v) {
+  float res[4];
+  res[0] = m->v[ 0]*v->v[0] + m->v[ 4]*v->v[1] + m->v[ 8]*v->v[2] + m->v[12]*v->v[3];
+  res[1] = m->v[ 1]*v->v[0] + m->v[ 5]*v->v[1] + m->v[ 9]*v->v[2] + m->v[13]*v->v[3];
+  res[2] = m->v[ 2]*v->v[0] + m->v[ 6]*v->v[1] + m->v[10]*v->v[2] + m->v[14]*v->v[3];
+  res[3] = m->v[ 3]*v->v[0] + m->v[ 7]*v->v[1] + m->v[11]*v->v[2] + m->v[15]*v->v[3];
+  v->v[0] = res[0];
+  v->v[1] = res[1];
+  v->v[2] = res[2];
+  v->v[3] = res[3];
+  return v;
+}
+
 mat4f *mat4_transpose(mat4f *out, const mat4f *m) {
   out->m[0][0] = m->m[0][0];
   out->m[0][1] = m->m[1][0];

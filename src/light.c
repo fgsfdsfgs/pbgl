@@ -63,6 +63,19 @@ void pbgl_light_flush_all(void) {
 
 /* GL FUNCTIONS BEGIN */
 
+GL_API void glColorMaterial(GLenum face, GLenum mode) {
+  if (face == GL_FRONT_AND_BACK) {
+    glColorMaterial(GL_FRONT, mode);
+    glColorMaterial(GL_BACK, mode);
+    return;
+  }
+
+  const int idx = (face == GL_FRONT) ? 0 : 1;
+
+  pbgl.material[idx].mode = mode;
+  pbgl.state_dirty = pbgl.material[idx].dirty = GL_TRUE;
+}
+
 GL_API void glLighti(GLenum light, GLenum pname, GLint param) {
   if (light >= GL_LIGHT0 + LIGHT_COUNT) {
     pbgl_set_error(GL_INVALID_ENUM);
@@ -120,6 +133,9 @@ GL_API void glLightfv(GLenum light, GLenum pname, const GLfloat *params) {
       break;
     case GL_POSITION:
       pbgl.light[lidx].pos = *(const vec4f *)params;
+      // position is given to GL in object space (?), but has to be in camera space
+      // according to spec it should be transformed when glLight is called
+      mat4_mul_vec4(&pbgl.mtx[MTX_MODELVIEW].mtx, &pbgl.light[lidx].pos);
       break;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
@@ -157,17 +173,77 @@ GL_API void glLightModelf(GLenum pname, GLfloat param) {
 
 GL_API void glLightModelfv(GLenum pname, const GLfloat *params) {
   switch(pname) {
-  case GL_LIGHT_MODEL_AMBIENT:
-    pbgl.lightmodel.ambient.r = params[0];
-    pbgl.lightmodel.ambient.g = params[1];
-    pbgl.lightmodel.ambient.b = params[2];
-    pbgl.lightmodel.ambient.a = params[3];
-    break;
-  default:
-    // TODO
-    glLightModelf(pname, *params);
-    return;
+    case GL_LIGHT_MODEL_AMBIENT:
+      pbgl.lightmodel.ambient.r = params[0];
+      pbgl.lightmodel.ambient.g = params[1];
+      pbgl.lightmodel.ambient.b = params[2];
+      pbgl.lightmodel.ambient.a = params[3];
+      break;
+    default:
+      // TODO
+      glLightModelf(pname, *params);
+      return;
   }
 
   pbgl.state_dirty = pbgl.lightmodel.dirty = GL_TRUE;
+}
+
+GL_API void glMaterialfv(GLenum face, GLenum pname, const GLfloat *params) {
+  if (face == GL_FRONT_AND_BACK) {
+    glMaterialfv(GL_FRONT, pname, params);
+    glMaterialfv(GL_BACK, pname, params);
+    return;
+  }
+
+  if (pname == GL_AMBIENT_AND_DIFFUSE) {
+    glMaterialfv(face, GL_AMBIENT, params);
+    glMaterialfv(face, GL_DIFFUSE, params);
+    return;
+  }
+
+  const int idx = (face == GL_FRONT) ? 0 : 1;
+
+  switch(pname) {
+    case GL_SHININESS:
+      pbgl.material[idx].shininess = params[0];
+      break;
+    case GL_EMISSION:
+      pbgl.material[idx].emission.r = params[0];
+      pbgl.material[idx].emission.g = params[1];
+      pbgl.material[idx].emission.b = params[2];
+      pbgl.material[idx].emission.a = params[3];
+      break;
+    case GL_AMBIENT:
+      pbgl.material[idx].ambient.r = params[0];
+      pbgl.material[idx].ambient.g = params[1];
+      pbgl.material[idx].ambient.b = params[2];
+      pbgl.material[idx].ambient.a = params[3];
+      break;
+    case GL_DIFFUSE:
+      pbgl.material[idx].diffuse.r = params[0];
+      pbgl.material[idx].diffuse.g = params[1];
+      pbgl.material[idx].diffuse.b = params[2];
+      pbgl.material[idx].diffuse.a = params[3];
+      break;
+    case GL_SPECULAR:
+      pbgl.material[idx].specular.r = params[0];
+      pbgl.material[idx].specular.g = params[1];
+      pbgl.material[idx].specular.b = params[2];
+      pbgl.material[idx].specular.a = params[3];
+      break;
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      return;
+  }
+
+  pbgl.state_dirty = pbgl.material[idx].dirty = GL_TRUE;
+}
+
+GL_API void glMaterialf(GLenum face, GLenum pname, GLfloat param) {
+  if (pname == GL_SHININESS) {
+    glMaterialfv(face, pname, &param);
+    return;
+  }
+  // TODO:
+  pbgl_set_error(GL_INVALID_ENUM);
 }

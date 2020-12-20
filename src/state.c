@@ -130,8 +130,13 @@ void pbgl_state_init(void) {
   pbgl.view.zfar = 1.f;
   pbgl.view.dirty = GL_TRUE;
 
+  pbgl.material[0].dirty = GL_TRUE;
+  pbgl.material[1].dirty = GL_TRUE;
+
   // TODO:
   pbgl.scissor.dirty = GL_TRUE;
+
+  pbgl.clear_zstencil = 0xFFFFFF00; // TODO: this assumes 24-bit z + 8-bit stencil
 
   pbgl.state_dirty = GL_TRUE;
 
@@ -276,6 +281,13 @@ GLboolean pbgl_state_flush(void) {
     p = push_command(p, NV097_SET_BACK_SCENE_AMBIENT_COLOR, 3);
     p = push_floats(p, pbgl.lightmodel.ambient.v, 3);
     pbgl.lightmodel.dirty = GL_FALSE;
+  }
+
+  for (int i = 0; i < 2; ++i) {
+    if (pbgl.material[i].dirty) {
+      // TODO:
+      pbgl.material[i].dirty = GL_FALSE;
+    }
   }
 
   pb_end(p);
@@ -550,6 +562,16 @@ GL_API void glClearColor(GLclampf rf, GLclampf gf, GLclampf bf, GLclampf af) {
   const GLubyte b = bf * 255.f;
   const GLubyte a = af * 255.f;
   pbgl.clear_color = (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+GL_API void glClearDepth(GLclampd val) {
+  const GLuint uval = (GLuint)(val * PBGL_Z_MAX);
+  pbgl.clear_zstencil = (pbgl.clear_zstencil & 0x000000FF) | (uval << 8);
+}
+
+GL_API void glClearStencil(GLint val) {
+  const GLuint uval = ((GLuint)val) & 0xFF;
+  pbgl.clear_zstencil = (pbgl.clear_zstencil & 0xFFFFFF00) | uval;
 }
 
 GL_API void glColorMask(GLboolean r, GLboolean g, GLboolean b, GLboolean a) {

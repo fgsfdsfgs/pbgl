@@ -1,7 +1,12 @@
 /**
+ * DISCLAIMER
  * This file has no copyright assigned and is placed in the Public Domain.
- * This file is based on gl.h from the mingw-w64 runtime package.
- * No warranty is given; refer to the file DISCLAIMER.PD within this package.
+ * This file is part of the mingw-w64 runtime package.
+ *
+ * The mingw-w64 runtime package and its code is distributed in the hope that it 
+ * will be useful but WITHOUT ANY WARRANTY.  ALL WARRANTIES, EXPRESSED OR 
+ * IMPLIED ARE HEREBY DISCLAIMED.  This includes but is not limited to 
+ * warranties of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
 #ifndef __gl_h_
 #ifndef __GL_H__
@@ -694,9 +699,9 @@ GL_API void glBlendFunc(GLenum sfactor, GLenum dfactor);
 GL_API void glClear(GLbitfield mask);
 // GL_API void glClearAccum(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
 GL_API void glClearColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-// GL_API void glClearDepth(GLclampd depth);
+GL_API void glClearDepth(GLclampd depth);
 // GL_API void glClearIndex(GLfloat c);
-// GL_API void glClearStencil(GLint s);
+GL_API void glClearStencil(GLint s);
 // GL_API void glClipPlane(GLenum plane, const GLdouble *equation);
 // GL_API void glColor3b(GLbyte red, GLbyte green, GLbyte blue);
 // GL_API void glColor3bv(const GLbyte *v);
@@ -731,7 +736,7 @@ GL_API void glColor4ubv(const GLubyte *v);
 // GL_API void glColor4us(GLushort red, GLushort green, GLushort blue, GLushort alpha);
 // GL_API void glColor4usv(const GLushort *v);
 GL_API void glColorMask(GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
-// GL_API void glColorMaterial(GLenum face, GLenum mode);
+GL_API void glColorMaterial(GLenum face, GLenum mode);
 GL_API void glColorPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *pointer);
 // GL_API void glCopyPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum type);
 // GL_API void glCopyTexImage1D(GLenum target, GLint level, GLenum internalFormat, GLint x, GLint y, GLsizei width, GLint border);
@@ -851,8 +856,8 @@ GL_API void glLoadMatrixf(const GLfloat *m);
 // GL_API void glMapGrid1f(GLint un, GLfloat u1, GLfloat u2);
 // GL_API void glMapGrid2d(GLint un, GLdouble u1, GLdouble u2, GLint vn, GLdouble v1, GLdouble v2);
 // GL_API void glMapGrid2f(GLint un, GLfloat u1, GLfloat u2, GLint vn, GLfloat v1, GLfloat v2);
-// GL_API void glMaterialf(GLenum face, GLenum pname, GLfloat param);
-// GL_API void glMaterialfv(GLenum face, GLenum pname, const GLfloat *params);
+GL_API void glMaterialf(GLenum face, GLenum pname, GLfloat param);
+GL_API void glMaterialfv(GLenum face, GLenum pname, const GLfloat *params);
 // GL_API void glMateriali(GLenum face, GLenum pname, GLint param);
 // GL_API void glMaterialiv(GLenum face, GLenum pname, const GLint *params);
 GL_API void glMatrixMode(GLenum mode);

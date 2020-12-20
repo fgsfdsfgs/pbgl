@@ -106,6 +106,16 @@ typedef struct {
 } light_model_state_t;
 
 typedef struct {
+  GLboolean dirty;
+  GLenum mode;
+  vec4f diffuse;
+  vec4f emission;
+  vec4f ambient;
+  vec4f specular;
+  GLfloat shininess;
+} material_state_t;
+
+typedef struct {
   GLenum dirty;
   GLenum mode;
   GLenum combine_rgb;
@@ -221,6 +231,8 @@ typedef struct {
 
   light_state_t light[LIGHT_COUNT];
   GLboolean light_any_dirty;
+
+  material_state_t material[2];
 
   matrix_state_t mtx[MTX_COUNT];
   GLenum mtx_current;

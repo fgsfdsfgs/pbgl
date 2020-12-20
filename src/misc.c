@@ -17,7 +17,7 @@ GL_API void glClear(GLbitfield mask) {
   GLuint *p = pb_begin();
   p = push_command_parameter(p, NV097_SET_COLOR_CLEAR_VALUE, pbgl.clear_color);
   // for some reason it wants me to set the clear value every time immediately before the clear
-  p = push_command_parameter(p, NV097_SET_ZSTENCIL_CLEAR_VALUE, 0xFFFFFF00); // FIXME: this assumes Z24S8 surface
+  p = push_command_parameter(p, NV097_SET_ZSTENCIL_CLEAR_VALUE, pbgl.clear_zstencil);
   p = push_command_parameter(p, NV097_CLEAR_SURFACE, nvmask);
   pb_end(p);
 }
