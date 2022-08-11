@@ -140,6 +140,8 @@ void pbgl_state_init(void) {
   pbgl.polymode.front_mode = NV097_SET_FRONT_POLYGON_MODE_V_FILL;
   pbgl.polymode.back_mode = NV097_SET_FRONT_POLYGON_MODE_V_FILL;
 
+  pbgl.line.dirty = GL_TRUE;
+
   pbgl.clear_zstencil = 0xFFFFFF00; // TODO: this assumes 24-bit z + 8-bit stencil
 
   pbgl.state_dirty = GL_TRUE;
@@ -195,6 +197,11 @@ GLboolean pbgl_state_flush(void) {
   if (!pbgl.state_dirty) return GL_FALSE;
 
   GLuint *p = pb_begin();
+
+  if (pbgl.line.dirty) {
+    p = push_command_boolean(p, NV20_TCL_PRIMITIVE_3D_LINE_SMOOTH_ENABLE, pbgl.flags.line_smooth);
+    pbgl.line.dirty = GL_FALSE;
+  }
 
   if (pbgl.alpha.dirty) {
     // alpha kill might have changed
@@ -455,6 +462,12 @@ static inline void set_feature(GLenum feature, GLboolean value) {
     case GL_TEXTURE_GEN_Q:
       pbgl.flags.texgen_q = value;
       break;
+    case GL_LINE_SMOOTH:
+      if (pbgl.flags.line_smooth != value) {
+          pbgl.flags.line_smooth = value;
+          pbgl.line.dirty = GL_TRUE;
+      }
+      break;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
@@ -518,6 +531,7 @@ GL_API GLboolean glIsEnabled(GLenum feature) {
     case GL_TEXTURE_GEN_T:        return pbgl.flags.texgen_t;
     case GL_TEXTURE_GEN_R:        return pbgl.flags.texgen_r;
     case GL_TEXTURE_GEN_Q:        return pbgl.flags.texgen_q;
+    case GL_LINE_SMOOTH:          return pbgl.flags.line_smooth;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       return GL_FALSE;

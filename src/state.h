@@ -26,6 +26,7 @@ typedef union {
     GLuint texgen_s     : 1; // 12
     GLuint texgen_t     : 1; // 13
     GLuint normalize    : 1; // 14
+    GLuint line_smooth  : 1; // 15
   };
   GLuint word;
 } server_flags_t;
@@ -172,6 +173,10 @@ typedef struct {
 
 typedef struct {
   GLboolean dirty;
+} line_state_t;
+
+typedef struct {
+  GLboolean dirty;
   GLint x;
   GLint y;
   GLint w;
@@ -226,6 +231,7 @@ typedef struct {
   cull_state_t cullface;
   light_model_state_t lightmodel;
   fog_state_t fog;
+  line_state_t line;
 
   immediate_state_t imm;
   varray_state_t varray[VARR_COUNT];
