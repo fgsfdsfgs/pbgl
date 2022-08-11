@@ -65,6 +65,12 @@ typedef struct {
 
 typedef struct {
   GLboolean dirty;
+  GLuint front_mode;
+  GLuint back_mode;
+} poly_mode_state_t;
+
+typedef struct {
+  GLboolean dirty;
   GLenum func;
   GLubyte ref;
 } alpha_state_t;
@@ -215,6 +221,7 @@ typedef struct {
   depth_state_t depth;
   stencil_state_t stencil;
   polyofs_state_t polyofs;
+  poly_mode_state_t polymode;
   color_mask_t colormask;
   cull_state_t cullface;
   light_model_state_t lightmodel;

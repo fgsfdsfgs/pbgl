@@ -136,6 +136,10 @@ void pbgl_state_init(void) {
   // TODO:
   pbgl.scissor.dirty = GL_TRUE;
 
+  pbgl.polymode.dirty = GL_TRUE;
+  pbgl.polymode.front_mode = NV097_SET_FRONT_POLYGON_MODE_V_FILL;
+  pbgl.polymode.back_mode = NV097_SET_FRONT_POLYGON_MODE_V_FILL;
+
   pbgl.clear_zstencil = 0xFFFFFF00; // TODO: this assumes 24-bit z + 8-bit stencil
 
   pbgl.state_dirty = GL_TRUE;
@@ -236,6 +240,12 @@ GLboolean pbgl_state_flush(void) {
     p = push_command_float(p, NV097_SET_POLYGON_OFFSET_SCALE_FACTOR, pbgl.polyofs.factor);
     p = push_command_float(p, NV097_SET_POLYGON_OFFSET_BIAS, pbgl.polyofs.units);
     pbgl.polyofs.dirty = GL_FALSE;
+  }
+
+  if (pbgl.polymode.dirty) {
+    p = push_command_parameter(p, NV097_SET_FRONT_POLYGON_MODE, pbgl.polymode.front_mode);
+    p = push_command_parameter(p, NV097_SET_BACK_POLYGON_MODE, pbgl.polymode.back_mode);
+    pbgl.polymode.dirty = GL_FALSE;
   }
 
   if (pbgl.cullface.dirty) {
@@ -625,7 +635,47 @@ GL_API void glPixelStorei(GLenum pname, GLint param) {
 }
 
 GL_API void glPolygonMode(GLenum face, GLenum mode) {
-  // TODO:
+  if (pbgl.imm.active) {
+    // can't do this during model creation
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  // Front and back seem to use the same defines?
+  uint32_t xbox_mode = NV097_SET_FRONT_POLYGON_MODE_V_FILL;
+
+  switch (mode) {
+    case GL_POINT:
+      xbox_mode = NV097_SET_FRONT_POLYGON_MODE_V_POINT;
+      break;
+    case GL_LINE:
+      xbox_mode = NV097_SET_FRONT_POLYGON_MODE_V_LINE;
+      break;
+    case GL_FILL:
+      // Default value
+      break;
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      return;
+  }
+
+  switch (face) {
+    case GL_FRONT:
+      pbgl.polymode.front_mode = xbox_mode;
+      break;
+    case GL_BACK:
+      pbgl.polymode.back_mode = xbox_mode;
+      break;
+    case GL_FRONT_AND_BACK:
+      pbgl.polymode.front_mode = xbox_mode;
+      pbgl.polymode.back_mode = xbox_mode;
+      break;
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      return;
+  }
+
+  pbgl.polymode.dirty = GL_TRUE;
 }
 
 GL_API void glPointSize(GLfloat size) {
