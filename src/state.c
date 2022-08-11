@@ -521,6 +521,7 @@ GL_API GLboolean glIsEnabled(GLenum feature) {
     case GL_TEXTURE_GEN_T:        return pbgl.flags.texgen_t;
     case GL_TEXTURE_GEN_R:        return pbgl.flags.texgen_r;
     case GL_TEXTURE_GEN_Q:        return pbgl.flags.texgen_q;
+    case GL_LINE_SMOOTH:          return pbgl.flags.line_smooth;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       return GL_FALSE;
