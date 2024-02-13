@@ -101,6 +101,12 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
     case GL_STENCIL_BITS:               *params = 8; break; // TODO: read from current video mode?
     case GL_STENCIL_FUNC:               *params = pbgl.stencil.func + 0x200; break;
     case GL_TEXTURE_STACK_DEPTH:        *params = pbgl_mtx_stack_depth(MTX_TEXTURE); break;
+    case GL_SCISSOR_BOX:
+      params[0] = pbgl.scissor.x;
+      params[1] = pbgl.scissor.y;
+      params[2] = pbgl.scissor.w;
+      params[3] = pbgl.scissor.h;
+      break;
     case GL_CURRENT_COLOR:
       params[0] = pbgl.varray[VARR_COLOR1].value.r * 255.f;
       params[1] = pbgl.varray[VARR_COLOR1].value.g * 255.f;
