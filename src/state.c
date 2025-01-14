@@ -133,8 +133,11 @@ void pbgl_state_init(void) {
   pbgl.material[0].dirty = GL_TRUE;
   pbgl.material[1].dirty = GL_TRUE;
 
-  // TODO:
   pbgl.scissor.dirty = GL_TRUE;
+  pbgl.scissor.x = 0;
+  pbgl.scissor.y = 0;
+  pbgl.scissor.w = pbgl.fb_width;
+  pbgl.scissor.h = pbgl.fb_height;
 
   pbgl.polymode.dirty = GL_TRUE;
   pbgl.polymode.front_mode = NV097_SET_FRONT_POLYGON_MODE_V_FILL;
@@ -197,6 +200,28 @@ GLboolean pbgl_state_flush(void) {
   if (!pbgl.state_dirty) return GL_FALSE;
 
   GLuint *p = pb_begin();
+
+  if (pbgl.scissor.dirty && pbgl.flags.scissor_test) {
+    #define NV097_SET_WINDOW_CLIP_TYPE 0x000002B4
+    #define NV097_SET_WINDOW_CLIP_HORIZONTAL 0x000002C0
+    #define NV097_SET_WINDOW_CLIP_VERTICAL 0x000002E0
+
+    GLint xmin = pbgl.scissor.x;
+    GLint xmax = pbgl.scissor.x + pbgl.scissor.w - 1;
+    GLint ymax = pbgl.view.h - pbgl.scissor.y - 1;
+    GLint ymin = pbgl.view.h - pbgl.scissor.y - pbgl.scissor.h;
+
+    xmin = imax(xmin, 0);
+    ymin = imax(ymin, 0);
+    xmax = imin(xmax, pbgl.view.w - 1);
+    ymax = imin(ymax, pbgl.view.h - 1);
+
+
+    p = push_command_boolean(p, NV097_SET_WINDOW_CLIP_TYPE, false);
+    p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, xmin | (xmax << 16));
+    p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, ymin | (ymax << 16));
+    pbgl.scissor.dirty = GL_FALSE;
+  }
 
   if (pbgl.line.dirty) {
     p = push_command_boolean(p, NV20_TCL_PRIMITIVE_3D_LINE_SMOOTH_ENABLE, pbgl.flags.line_smooth);
@@ -704,7 +729,11 @@ GL_API void glPolygonOffset(GLfloat factor, GLfloat units) {
 }
 
 GL_API void glScissor(GLint x, GLint y, GLint width, GLint height) {
-  // TODO:
+  pbgl.scissor.x = x;
+  pbgl.scissor.y = y;
+  pbgl.scissor.w = width;
+  pbgl.scissor.h = height;
+  pbgl.state_dirty = pbgl.scissor.dirty = GL_TRUE;
 }
 
 GL_API void glShadeModel(GLenum model) {
