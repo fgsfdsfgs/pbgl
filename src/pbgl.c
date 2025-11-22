@@ -19,6 +19,15 @@
 static GLboolean pbkit_initialized = GL_FALSE;
 static GLboolean pbkit_do_deinit = GL_FALSE;
 
+// workaround for pbkit enabling the wrong Z buffer mode
+static inline void pbgl_target_back_buffer(void) {
+  pb_target_back_buffer();
+  // override Z-buffer mode set by pbkit's set_draw_buffer() for no apparent reason
+  uint32_t *p = pb_begin();
+  p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_W_YUV_FPZ_FLAGS, 0x00100001);
+  pb_end(p);
+}
+
 int pbgl_init(int init_pbkit) {
   if (pbgl.active)
     return -1; // don't double init
@@ -119,7 +128,7 @@ int pbgl_init(int init_pbkit) {
 
   // prepare for drawing the first frame
   pb_reset();
-  pb_target_back_buffer();
+  pbgl_target_back_buffer();
 
   // wait for anything that's still happening just in case (probably not necessary)
   while (pb_busy());
@@ -154,7 +163,7 @@ void pbgl_swap_buffers(void) {
   pbgl.last_swap = now;
 
   pb_reset();
-  pb_target_back_buffer();
+  pbgl_target_back_buffer();
 }
 
 void *pbgl_alloc(unsigned int size, int dynamic) {
