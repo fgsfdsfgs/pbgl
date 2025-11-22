@@ -29,9 +29,10 @@ GL_API void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum
 // TODO: figure out how the fuck to do this properly
 
 GL_API void glFinish(void) {
+  glFlush();
   while (pb_busy());
 }
 
 GL_API void glFlush(void) {
-  // ?
+  pbgl_state_flush();
 }
