@@ -17,12 +17,23 @@ Do note that NPOT textures are not supported and will probably explode.
 # Usage
 
 Link your project to `libpbgl.lib` and add the `include` folder to your include directories.
+If you are using the NXDK `Makefile` system, the easiest way to do this is something like this:
+```
+...
+PBGL_DIR := path/to/pbgl
+
+include $(NXDK_DIR)/Makefile
+include $(PBGL_DIR)/config_pbgl.make
+CFLAGS += $(PBGL_CFLAGS)
+CXXFLAGS += $(PBGL_CFLAGS)
+
+main.exe: $(PBGL_LIB)
+```
 You should then be able to use pbGL like any other GL implementation/loader, barring initialization and buffer swapping.
 Do keep in mind that you still have to set the display resolution before calling `pbgl_init()`.
 
 ```
-// define this to get GL function prototypes 
-// or use pbgl_get_proc_address() (not yet implemented)
+// define this to get GL function prototypes
 #define GL_GLEXT_PROTOTYPES
 #include <pbgl.h>
 #include <GL/gl.h>
