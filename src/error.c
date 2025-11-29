@@ -11,21 +11,28 @@
 
 #ifdef PBGL_DEBUG
 
+#include <windows.h>
+
 #define DEBUG_LOGFILE "D:\\pbgl.log"
 
 static FILE *logf = NULL;
 
 void pbgl_debug_log(const char *fmt, ...) {
+  static char msg[1024];
+
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(msg, sizeof(msg), fmt, args);
+  va_end(args);
+
+  DbgPrint("PBGL: %s\n", msg);
+
   if (logf == NULL) {
     logf = fopen(DEBUG_LOGFILE, "w");
     if (!logf) return;
   }
 
-  va_list args;
-  va_start(args, fmt);
-  vfprintf(logf, fmt, args);
-  va_end(args);
-
+  fprintf(logf, "PBGL: %s\n", msg);
   fflush(logf);
 }
 
@@ -46,9 +53,11 @@ const char *pbgl_get_error_str(GLenum error) {
 
 #endif
 
-void pbgl_set_gl_error(GLenum error, const char *func, const int line) {
+void pbgl_set_gl_error(GLenum error, GLenum arg, const char *func, const int line) {
 #ifdef PBGL_DEBUG
-  pbgl_debug_log("%s (%d): error: %s (current: %s)\n", func, line, pbgl_get_error_str(error), pbgl_get_error_str(pbgl.error));
+  pbgl_debug_log("%s (%d): error: %s (current: %s) arg: 0x%x", func, line, pbgl_get_error_str(error), pbgl_get_error_str(pbgl.error), arg);
+#else
+  (void)arg;
 #endif
   // spec: can only set error when it's unset
   if (pbgl.error == GL_NO_ERROR)
