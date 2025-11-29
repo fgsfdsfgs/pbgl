@@ -191,12 +191,6 @@ static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
   return p;
 }
 
-static inline void mark_active_texunits_dirty(void) {
-  for (GLuint i = 0; i < TEXUNIT_COUNT; ++i)
-    if (pbgl.tex[i].enabled)
-      pbgl.tex[i].dirty = GL_TRUE;
-}
-
 GLboolean pbgl_state_flush(void) {
   if (!pbgl.state_dirty) return GL_FALSE;
 
