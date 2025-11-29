@@ -360,7 +360,7 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
   if (tex->bytespp == bytespp && !reverse) {
     // no need for conversion
     if (x || y)
-      swizzle_rect_offset(data, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
+      swizzle_rect_offset(data, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, w * bytespp, tex->bytespp);
     else
       swizzle_rect(data, w, h, out, tex->mips[level].pitch, tex->bytespp);
     // if requested, build mipmaps starting from the current level
@@ -398,7 +398,7 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
 
   // upload converted texture
   if (x || y)
-    swizzle_rect_offset(tmp, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, tex->mips[level].pitch, tex->bytespp);
+    swizzle_rect_offset(tmp, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, w * tex->bytespp, tex->bytespp);
   else
     swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
 
@@ -727,6 +727,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
       // unknown format
       MmFreeContiguousMemory(tex->data);
       tex->data = NULL;
+      tex->allocated = GL_FALSE;
       pbgl_set_error(GL_INVALID_ENUM);
       return;
     }
