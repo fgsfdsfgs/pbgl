@@ -70,6 +70,7 @@ int pbgl_init(int init_pbkit) {
         PBGL_MASK(NV097_SET_SHADER_OTHER_STAGE_INPUT_STAGE1, 0)
       | PBGL_MASK(NV097_SET_SHADER_OTHER_STAGE_INPUT_STAGE2, 0)
       | PBGL_MASK(NV097_SET_SHADER_OTHER_STAGE_INPUT_STAGE3, 0));
+  p = push_command_parameter(p, NV097_SET_LIGHT_LOCAL_RANGE, 0x7149f2ca);
 
   // push identity viewport parameters
   p = push_command(p, NV097_SET_VIEWPORT_OFFSET, 4);
