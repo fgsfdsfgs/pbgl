@@ -46,23 +46,6 @@ void swizzle_box(
   unsigned int bytes_per_pixel
 );
 
-void swizzle_box_offset(
-  const uint8_t *src_buf,
-  unsigned int src_width,
-  unsigned int src_height,
-  unsigned int src_depth,
-  uint8_t *dst_buf,
-  unsigned int dst_xofs,
-  unsigned int dst_yofs,
-  unsigned int dst_zofs,
-  unsigned int dst_width,
-  unsigned int dst_height,
-  unsigned int dst_depth,
-  unsigned int row_pitch,
-  unsigned int slice_pitch,
-  unsigned int bytes_per_pixel
-);
-
 void unswizzle_box(
   const uint8_t *src_buf,
   unsigned int width,
@@ -92,17 +75,19 @@ void swizzle_rect(
   unsigned int bytes_per_pixel
 );
 
-void swizzle_rect_offset(
-  const uint8_t *src_buf,
-  unsigned int src_width,
-  unsigned int src_height,
+void swizzle_subrect(
+  const uint8_t *sub_buf,
+  unsigned int sub_x,
+  unsigned int sub_y,
+  unsigned int sub_z,
+  unsigned int sub_width,
+  unsigned int sub_height,
+  unsigned int sub_depth,
   uint8_t *dst_buf,
-  unsigned int dst_xofs,
-  unsigned int dst_yofs,
   unsigned int dst_width,
   unsigned int dst_height,
-  unsigned int pitch,
-  unsigned int bytes_per_pixel
+  unsigned int dst_depth,
+  unsigned int dst_bytespp
 );
 
 #endif

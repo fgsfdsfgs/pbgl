@@ -359,8 +359,8 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
 
   if (tex->bytespp == bytespp && !reverse) {
     // no need for conversion
-    if (x || y)
-      swizzle_rect_offset(data, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, w * bytespp, tex->bytespp);
+    if (x || y || w != tex->mips[level].width || h != tex->mips[level].height)
+      swizzle_subrect(data, x, y, 0, w, h, 1, out, tex->mips[level].width, tex->mips[level].height, tex->depth, tex->bytespp);
     else
       swizzle_rect(data, w, h, out, tex->mips[level].pitch, tex->bytespp);
     // if requested, build mipmaps starting from the current level
@@ -397,8 +397,8 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
   }
 
   // upload converted texture
-  if (x || y)
-    swizzle_rect_offset(tmp, w, h, out, x, y, tex->mips[level].width, tex->mips[level].height, w * tex->bytespp, tex->bytespp);
+  if (x || y || w != tex->mips[level].width || h != tex->mips[level].height)
+    swizzle_subrect(tmp, x, y, 0, w, h, 1, out, tex->mips[level].width, tex->mips[level].height, tex->depth, tex->bytespp);
   else
     swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
 
@@ -453,7 +453,7 @@ static GLboolean tex_alloc(texture_t *tex) {
     tex->mipmax = 1;
   }
 
-  tex->data = MmAllocateContiguousMemoryEx(tex->size, 0, PBGL_MAXRAM, TEX_ALIGN, 0x404);
+  tex->data = MmAllocateContiguousMemoryEx(tex->size, 0, PBGL_MAXRAM, TEX_ALIGN, PAGE_WRITECOMBINE | PAGE_READWRITE);
   if (!tex->data) {
     pbgl_set_error(GL_OUT_OF_MEMORY);
     return GL_FALSE;
@@ -761,7 +761,7 @@ GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, 
   }
 
   // why is < 0 even allowed
-  if (level < 0 || level >= TEX_MAX_MIPS || width <= 0 || height <= 0) {
+  if (level < 0 || level >= TEX_MAX_MIPS || width < 0 || height < 0) {
     pbgl_set_error(GL_INVALID_VALUE);
     return;
   }
@@ -774,6 +774,10 @@ GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, 
 
   // uploading more mipmaps than the texture can take is a no-op
   if (level >= tex->mipmax || level >= tex->mipcount)
+    return;
+
+  // empty subimages are a no-op
+  if (width == 0 || height == 0)
     return;
 
   GLboolean reverse = GL_FALSE; // TODO: actually implement GL_BGR* support

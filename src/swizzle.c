@@ -97,39 +97,17 @@ void swizzle_box(
       for (x = 0; x < width; x++) {
         const uint8_t *src = src_buf + y * row_pitch + x * bytes_per_pixel;
         uint8_t *dst = dst_buf + swizzle_get_offset(x, y, 0, mask_x, mask_y, 0, bytes_per_pixel);
-        memcpy(dst, src, bytes_per_pixel);
-      }
-    }
-    src_buf += slice_pitch;
-  }
-}
-
-void swizzle_box_offset(
-  const uint8_t *src_buf,
-  unsigned int src_width,
-  unsigned int src_height,
-  unsigned int src_depth,
-  uint8_t *dst_buf,
-  unsigned int dst_xofs,
-  unsigned int dst_yofs,
-  unsigned int dst_zofs,
-  unsigned int dst_width,
-  unsigned int dst_height,
-  unsigned int dst_depth,
-  unsigned int row_pitch,
-  unsigned int slice_pitch,
-  unsigned int bytes_per_pixel
-) {
-  uint32_t mask_x, mask_y, mask_z;
-  swizzle_generate_masks(dst_width, dst_height, dst_depth, &mask_x, &mask_y, &mask_z);
-
-  int x, y, z;
-  for (z = 0; z < src_depth; z++) {
-    for (y = 0; y < src_height; y++) {
-      for (x = 0; x < src_width; x++) {
-        const uint8_t *src = src_buf + y * row_pitch + x * bytes_per_pixel;
-        uint8_t *dst = dst_buf + swizzle_get_offset(x + dst_xofs, y + dst_yofs, 0, mask_x, mask_y, 0, bytes_per_pixel);
-        memcpy(dst, src, bytes_per_pixel);
+        switch (bytes_per_pixel) {
+          case 4:
+            *dst++ = *src++;
+            *dst++ = *src++;
+            /* fallthrough */
+          case 2:
+            *dst++ = *src++;
+            /* fallthrough */
+          default:
+            *dst++ = *src++;
+        }
       }
     }
     src_buf += slice_pitch;
@@ -155,7 +133,17 @@ void unswizzle_box(
       for (x = 0; x < width; x++) {
         const uint8_t *src = src_buf + swizzle_get_offset(x, y, z, mask_x, mask_y, mask_z, bytes_per_pixel);
         uint8_t *dst = dst_buf + y * row_pitch + x * bytes_per_pixel;
-        memcpy(dst, src, bytes_per_pixel);
+        switch (bytes_per_pixel) {
+          case 4:
+            *dst++ = *src++;
+            *dst++ = *src++;
+            /* fallthrough */
+          case 2:
+            *dst++ = *src++;
+            /* fallthrough */
+          default:
+            *dst++ = *src++;
+        }
       }
     }
     dst_buf += slice_pitch;
@@ -184,17 +172,40 @@ void swizzle_rect(
     swizzle_box(src_buf, width, height, 1, dst_buf, pitch, 0, bytes_per_pixel);
 }
 
-void swizzle_rect_offset(
-  const uint8_t *src_buf,
-  unsigned int src_width,
-  unsigned int src_height,
+void swizzle_subrect(
+  const uint8_t *sub_buf,
+  unsigned int sub_x,
+  unsigned int sub_y,
+  unsigned int sub_z,
+  unsigned int sub_width,
+  unsigned int sub_height,
+  unsigned int sub_depth,
   uint8_t *dst_buf,
-  unsigned int dst_xofs,
-  unsigned int dst_yofs,
   unsigned int dst_width,
   unsigned int dst_height,
-  unsigned int pitch,
-  unsigned int bytes_per_pixel
+  unsigned int dst_depth,
+  unsigned int dst_bytespp
 ) {
-    swizzle_box_offset(src_buf, src_width, src_height, 1, dst_buf, dst_xofs, dst_yofs, 0, dst_width, dst_height, 1, pitch, 0, bytes_per_pixel);
+  uint32_t mask_x, mask_y, mask_z;
+  swizzle_generate_masks(dst_width, dst_height, dst_depth, &mask_x, &mask_y, &mask_z);
+
+  unsigned int x, y, z;
+  for (z = 0; z < sub_depth; z++) {
+    for (y = 0; y < sub_height; y++) {
+      for (x = 0; x < sub_width; x++) {
+        uint8_t *dst = dst_buf + swizzle_get_offset(x + sub_x, y + sub_y, z + sub_z, mask_x, mask_y, mask_z, dst_bytespp);
+        switch (dst_bytespp) {
+          case 4:
+            *dst++ = *sub_buf++;
+            *dst++ = *sub_buf++;
+            /* fallthrough */
+          case 2:
+            *dst++ = *sub_buf++;
+            /* fallthrough */
+          default:
+            *dst++ = *sub_buf++;
+        }
+      }
+    }
+  }
 }
