@@ -764,6 +764,8 @@ GL_API void glStencilOp(GLenum sfail, GLenum zfail, GLenum zpass) {
 }
 
 GL_API void glViewport(GLint x, GLint y, GLsizei width, GLsizei height) {
+  // TODO: rendertargets, if I add support for them
+  y = pbgl.fb_height - y - height;
   if (pbgl.view.x != x || pbgl.view.y != y || pbgl.view.w != width || pbgl.view.h != height)
     pbgl.state_dirty = pbgl.view.dirty = GL_TRUE;
   pbgl.view.x = x;
