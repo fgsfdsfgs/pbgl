@@ -55,8 +55,8 @@ void pbgl_state_init(void) {
   pbgl.stencil.op_sfail = GL_KEEP; // and for stencil ops
   pbgl.stencil.op_zfail = GL_KEEP;
   pbgl.stencil.op_zpass = GL_KEEP;
-  pbgl.stencil.funcmask = 0xFFFFFFFF;
-  pbgl.stencil.writemask = 0xFFFFFFFF;
+  pbgl.stencil.funcmask = 0xFFFFFFFFu;
+  pbgl.stencil.writemask = 0xFFFFFFFFu;
   pbgl.stencil.dirty = GL_TRUE;
 
   pbgl.cullface.frontface = GL_CCW; // and for front face
@@ -94,12 +94,13 @@ void pbgl_state_init(void) {
 
   pbgl.varray[VARR_COLOR1].value   = (vec4f) {{ 1.f, 1.f, 1.f, 1.f }};
   pbgl.varray[VARR_NORMAL].value   = (vec4f) {{ 0.f, 0.f, 1.f, 0.f }};
-  pbgl.varray[VARR_TEXCOORD].value = (vec4f) {{ 0.f, 0.f, 0.f, 1.f }};
   for (int i = 0; i < VARR_COUNT; ++i)
     pbgl.varray[i].dirty = GL_TRUE;
 
   for (int i = 0; i < TEXUNIT_COUNT; ++i) {
     pbgl.tex[i].dirty = GL_TRUE;
+    pbgl.tex[i].varray.value = (vec4f) {{ 0.f, 0.f, 1.f, 1.f }};
+    pbgl.tex[i].varray.dirty = GL_TRUE;
     pbgl.texenv[i] = (texenv_state_t) {
       .mode        = GL_MODULATE,
       .combine_rgb = GL_MODULATE,
@@ -109,8 +110,8 @@ void pbgl_state_init(void) {
       .operand_rgb = { GL_SRC_COLOR, GL_SRC_COLOR, GL_SRC_ALPHA },
       .operand_a   = { GL_SRC_ALPHA, GL_SRC_ALPHA, GL_SRC_ALPHA },
       .color       = 0x00000000,
-      .scale_rgb   = 1.f,
-      .scale_a     = 1.f,
+      .shift_rgb   = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT,
+      .shift_a     = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT,
       .dirty       = GL_TRUE,
     };
   }
@@ -515,10 +516,10 @@ static inline void set_client_state(GLenum state, GLboolean value) {
   if (arr == VARR_TEXCOORD) {
     pbgl.tex[pbgl.active_tex_cl].varray.enabled = value;
     pbgl.tex[pbgl.active_tex_cl].varray.dirty = GL_TRUE;
+  } else {
+    pbgl.varray[arr].enabled = value;
+    pbgl.varray[arr].dirty = GL_TRUE;
   }
-
-  pbgl.varray[arr].enabled = value;
-  pbgl.varray[arr].dirty = GL_TRUE;
 }
 
 /* GL FUNCTIONS BEGIN */

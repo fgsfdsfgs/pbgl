@@ -133,12 +133,13 @@ GL_API void glSecondaryColor3ub(GLubyte r, GLubyte g, GLubyte b) {
 }
 
 GL_API void glTexCoord4f(GLfloat s, GLfloat t, GLfloat r, GLfloat q) {
+  // according to spec, glTexCoord is equivalent to this with multitexturing support
   pbgl.imm.texcoord_flag = GL_TRUE;
-  pbgl.varray[VARR_TEXCOORD].value.x = s;
-  pbgl.varray[VARR_TEXCOORD].value.y = t;
-  pbgl.varray[VARR_TEXCOORD].value.z = r;
-  pbgl.varray[VARR_TEXCOORD].value.w = q;
-  pbgl.varray[VARR_TEXCOORD].dirty = GL_TRUE;
+  pbgl.tex[0].varray.value.x = s;
+  pbgl.tex[0].varray.value.y = t;
+  pbgl.tex[0].varray.value.z = r;
+  pbgl.tex[0].varray.value.w = q;
+  pbgl.tex[0].varray.dirty = GL_TRUE;
 }
 
 GL_API void glTexCoord3f(GLfloat s, GLfloat t, GLfloat r) {
@@ -175,7 +176,7 @@ GL_API void glTexCoord2iv(const GLint *v) {
 
 GL_API void glMultiTexCoord4f(GLenum unit, GLfloat s, GLfloat t, GLfloat r, GLfloat q) {
   unit -= GL_TEXTURE0;
-  pbgl.imm.multitexcoord_flag = GL_TRUE;
+  pbgl.imm.texcoord_flag = GL_TRUE;
   pbgl.tex[unit].varray.value.x = s;
   pbgl.tex[unit].varray.value.y = t;
   pbgl.tex[unit].varray.value.z = r;
@@ -213,12 +214,14 @@ GL_API void glNormal3dv(const GLdouble *v) {
 
 GL_API void glFogCoordf(GLfloat x) {
   pbgl.varray[VARR_FOG].value.x = x;
+  pbgl.varray[VARR_FOG].value.y = x;
+  pbgl.varray[VARR_FOG].value.z = x;
+  pbgl.varray[VARR_FOG].value.w = x;
   pbgl.imm.fogcoord_flag = GL_TRUE;
 }
 
 GL_API void glFogCoordd(GLdouble x) {
-  pbgl.varray[VARR_FOG].value.x = (GLfloat)x;
-  pbgl.imm.fogcoord_flag = GL_TRUE;
+  glFogCoordf((GLfloat)x);
 }
 
 GL_API void glVertex4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
@@ -232,21 +235,14 @@ GL_API void glVertex4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w) {
   if (pbgl.imm.normal_flag)
     p = push_attr_vec3f(p, NV2A_VERTEX_ATTR_NORMAL, pbgl.varray[VARR_NORMAL].value.vec3);
 
-  /* TODO: what does it expect for a fog coord? a single float? how do I push that?
   if (pbgl.imm.fogcoord_flag)
-    p = push_attr_float(p, NV2A_VERTEX_ATTR_FOG, pbgl.imm.fogcoord);
-  */
+    p = push_attr_vec4f(p, NV2A_VERTEX_ATTR_FOG, pbgl.varray[VARR_FOG].value);
 
-  if (pbgl.imm.multitexcoord_flag) {
+  if (pbgl.imm.texcoord_flag) {
     // load different texcoords for each texture unit that is enabled
     for (int i = 0; i < TEXUNIT_COUNT; ++i)
       if (pbgl.tex[i].enabled)
         p = push_attr_vec4f(p, NV2A_VERTEX_ATTR_TEXTURE0 + i, pbgl.tex[i].varray.value);
-  } else if (pbgl.imm.texcoord_flag) {
-    // load the same texcoords for all enabled units
-    for (int i = 0; i < TEXUNIT_COUNT; ++i)
-      if (pbgl.tex[i].enabled)
-        p = push_attr_vec4f(p, NV2A_VERTEX_ATTR_TEXTURE0 + i, pbgl.varray[VARR_TEXCOORD].value);
   }
 
   p = push_command(p, NV097_SET_VERTEX4F, 4);

@@ -14,9 +14,9 @@ enum varray_e {
   VARR_COLOR2,
   VARR_FOG,
 
-  VARR_TEXCOORD, // each texunit has its own varray
+  VARR_TEXCOORD, // each texunit has its own varray, so this is a dummy index
 
-  VARR_COUNT
+  VARR_COUNT = VARR_TEXCOORD
 };
 
 #define NV2A_VERTEX_ATTR_POSITION      0

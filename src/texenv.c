@@ -1,4 +1,5 @@
 #include <pbkit/pbkit.h>
+#include <limits.h>
 
 #include "GL/gl.h"
 #include "GL/glext.h"
@@ -11,39 +12,49 @@
 
 #define RC_ZERO 0x0
 #define RC_DISCARD 0x0
+#define RC_CONSTANT_COLOR0 0x1
+#define RC_CONSTANT_COLOR1 0x2
 #define RC_PRIMARY_COLOR 0x4
 #define RC_TEXTURE 0x8
 #define RC_SPARE0 0xC
 
-#define RC_UNSIGNED 0x0
-#define RC_UNSIGNED_INVERT 0x1
+#define MAP_UNSIGNED 0x0
+#define MAP_UNSIGNED_INV 0x1
+#define MAP_SIGNED 0x6
+#define MAP_SIGNED_NEG 0x7
 
-#define OP_CF RC_PRIMARY_COLOR, GL_TRUE, GL_FALSE
-#define OP_AF RC_PRIMARY_COLOR, GL_FALSE, GL_FALSE
-#define OP_CS RC_TEXTURE + texid, GL_TRUE, GL_FALSE
-#define OP_AS RC_TEXTURE + texid, GL_FALSE, GL_FALSE
-#define OP_CP rc_prev, GL_TRUE, GL_FALSE
-#define OP_AP rc_prev, GL_FALSE, GL_FALSE
-#define OP_ZERO RC_ZERO, GL_TRUE, GL_FALSE
-#define OP_ONE RC_ZERO, GL_TRUE, GL_TRUE
-#define OP_AS_INV RC_TEXTURE + texid, GL_FALSE, GL_TRUE
+#define OP_CF RC_PRIMARY_COLOR, GL_TRUE, MAP_UNSIGNED
+#define OP_AF RC_PRIMARY_COLOR, GL_FALSE, MAP_UNSIGNED
+#define OP_CS RC_TEXTURE + texid, GL_TRUE, MAP_UNSIGNED
+#define OP_AS RC_TEXTURE + texid, GL_FALSE, MAP_UNSIGNED
+#define OP_AS_INV RC_TEXTURE + texid, GL_FALSE, MAP_UNSIGNED_INV
+#define OP_CP rc_prev, GL_TRUE, MAP_UNSIGNED
+#define OP_AP rc_prev, GL_FALSE, MAP_UNSIGNED
+#define OP_CC0 RC_CONSTANT_COLOR0, GL_TRUE, MAP_UNSIGNED
+#define OP_CA0 RC_CONSTANT_COLOR0, GL_FALSE, MAP_UNSIGNED
+#define OP_CC1 RC_CONSTANT_COLOR1, GL_TRUE, MAP_UNSIGNED
+#define OP_CA1 RC_CONSTANT_COLOR1, GL_FALSE, MAP_UNSIGNED
+#define OP_C0 RC_ZERO, GL_TRUE, MAP_UNSIGNED
+#define OP_A0 RC_ZERO, GL_FALSE, MAP_UNSIGNED
+#define OP_C1 RC_ZERO, GL_TRUE, MAP_UNSIGNED_INV
+#define OP_A1 RC_ZERO, GL_FALSE, MAP_UNSIGNED_INV
 
 #define OP_COMBINE_RGB(i) \
   texenv_arg_src_gl_to_rc(texenv, texid, GL_TRUE, (i)), \
-  texenv_arg_is_alpha(texenv, GL_TRUE, (i)), \
-  texenv_arg_is_inverted(texenv, GL_TRUE, (i))
+  !texenv_arg_is_alpha(texenv, GL_TRUE, (i)), \
+  texenv_arg_mapping(texenv, GL_TRUE, (i))
 #define OP_COMBINE_RGB_INV(i) \
   texenv_arg_src_gl_to_rc(texenv, texid, GL_TRUE, (i)), \
-  texenv_arg_is_alpha(texenv, GL_TRUE, (i)), \
-  !texenv_arg_is_inverted(texenv, GL_TRUE, (i))
+  !texenv_arg_is_alpha(texenv, GL_TRUE, (i)), \
+  !texenv_arg_mapping(texenv, GL_TRUE, (i))
 #define OP_COMBINE_A(i) \
   texenv_arg_src_gl_to_rc(texenv, texid, GL_FALSE, (i)), \
   texenv_arg_is_alpha(texenv, GL_FALSE, (i)), \
-  texenv_arg_is_inverted(texenv, GL_FALSE, (i))
+  texenv_arg_mapping(texenv, GL_FALSE, (i))
 #define OP_COMBINE_A_INV(i) \
   texenv_arg_src_gl_to_rc(texenv, texid, GL_FALSE, (i)), \
   texenv_arg_is_alpha(texenv, GL_FALSE, (i)), \
-  !texenv_arg_is_inverted(texenv, GL_FALSE, (i))
+  !texenv_arg_mapping(texenv, GL_FALSE, (i))
 
 #define TEXENV_DIRTY_IF_CHANGED(field, value) \
   if (pbgl.texenv[pbgl.active_tex_sv].field != value) \
@@ -52,34 +63,34 @@
 static inline GLuint *texenv_push_src_rgb(
   GLuint *p,
   const GLuint stage,
-  const GLuint a, const GLboolean a_rgb, const GLboolean a_inv,
-  const GLuint b, const GLboolean b_rgb, const GLboolean b_inv,
-  const GLuint c, const GLboolean c_rgb, const GLboolean c_inv,
-  const GLuint d, const GLboolean d_rgb, const GLboolean d_inv
+  const GLuint a, const GLboolean a_rgb, const GLuint a_map,
+  const GLuint b, const GLboolean b_rgb, const GLuint b_map,
+  const GLuint c, const GLboolean c_rgb, const GLuint c_map,
+  const GLuint d, const GLboolean d_rgb, const GLuint d_map
 ) {
   return pb_push1(p, NV097_SET_COMBINER_COLOR_ICW + stage * 4,
-      PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_A_SOURCE, a) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_A_ALPHA, !a_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_A_MAP, a_inv)
-    | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_B_SOURCE, b) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_B_ALPHA, !b_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_B_MAP, b_inv)
-    | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_C_SOURCE, c) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_C_ALPHA, !c_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_C_MAP, c_inv)
-    | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_D_SOURCE, d) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_D_ALPHA, !d_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_D_MAP, d_inv));
+      PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_A_SOURCE, a) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_A_ALPHA, !a_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_A_MAP, a_map)
+    | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_B_SOURCE, b) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_B_ALPHA, !b_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_B_MAP, b_map)
+    | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_C_SOURCE, c) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_C_ALPHA, !c_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_C_MAP, c_map)
+    | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_D_SOURCE, d) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_D_ALPHA, !d_rgb) | PBGL_MASK(NV097_SET_COMBINER_COLOR_ICW_D_MAP, d_map));
 }
 
 static inline GLuint *texenv_push_src_a(
   GLuint *p,
   const GLuint stage,
-  const GLuint a, const GLboolean a_rgb, const GLboolean a_inv,
-  const GLuint b, const GLboolean b_rgb, const GLboolean b_inv,
-  const GLuint c, const GLboolean c_rgb, const GLboolean c_inv,
-  const GLuint d, const GLboolean d_rgb, const GLboolean d_inv
+  const GLuint a, const GLboolean a_rgb, const GLuint a_map,
+  const GLuint b, const GLboolean b_rgb, const GLuint b_map,
+  const GLuint c, const GLboolean c_rgb, const GLuint c_map,
+  const GLuint d, const GLboolean d_rgb, const GLuint d_map
 ) {
   return pb_push1(p, NV097_SET_COMBINER_ALPHA_ICW + stage * 4,
-      PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_A_SOURCE, a) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_A_ALPHA, !a_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_A_MAP, a_inv)
-    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_B_SOURCE, b) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_B_ALPHA, !b_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_B_MAP, b_inv)
-    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_C_SOURCE, c) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_C_ALPHA, !c_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_C_MAP, c_inv)
-    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_D_SOURCE, d) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_D_ALPHA, !d_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_D_MAP, d_inv));
+      PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_A_SOURCE, a) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_A_ALPHA, !a_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_A_MAP, a_map)
+    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_B_SOURCE, b) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_B_ALPHA, !b_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_B_MAP, b_map)
+    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_C_SOURCE, c) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_C_ALPHA, !c_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_C_MAP, c_map)
+    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_D_SOURCE, d) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_D_ALPHA, !d_rgb) | PBGL_MASK(NV097_SET_COMBINER_ALPHA_ICW_D_MAP, d_map));
 }
 
-static inline GLuint *texenv_push_dst_rgb(GLuint *p, const GLuint stage, const GLboolean ab, const GLboolean cd, const GLboolean sum) {
+static inline GLuint *texenv_push_dst_rgb(GLuint *p, const GLuint stage, const GLboolean ab, const GLboolean cd, const GLboolean sum, const GLuint op) {
   return pb_push1(p, NV097_SET_COMBINER_COLOR_OCW + stage * 4,
     PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_AB_DST, ab ? RC_SPARE0 : RC_DISCARD)
     | PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_CD_DST, cd ? RC_SPARE0 : RC_DISCARD)
@@ -87,46 +98,48 @@ static inline GLuint *texenv_push_dst_rgb(GLuint *p, const GLuint stage, const G
     | PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_MUX_ENABLE, 0)
     | PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_AB_DOT_ENABLE, 0)
     | PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_CD_DOT_ENABLE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_OP, NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT));
+    | PBGL_MASK(NV097_SET_COMBINER_COLOR_OCW_OP, op));
 }
 
-static inline GLuint *texenv_push_dst_a(GLuint *p, const GLuint stage, const GLboolean ab, const GLboolean cd, const GLboolean sum) {
+static inline GLuint *texenv_push_dst_a(GLuint *p, const GLuint stage, const GLboolean ab, const GLboolean cd, const GLboolean sum, const GLuint op) {
   return pb_push1(p, NV097_SET_COMBINER_ALPHA_OCW + stage * 4,
     PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_AB_DST, ab ? RC_SPARE0 : RC_DISCARD)
     | PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_CD_DST, cd ? RC_SPARE0 : RC_DISCARD)
     | PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_SUM_DST, sum ? RC_SPARE0 : RC_DISCARD)
     | PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_MUX_ENABLE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_OP, NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT));
+    | PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_OP, op));
 }
 
 static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
+  const GLuint shift_a = pbgl.texenv[texid].shift_a;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = As
-      p = texenv_push_src_a(p, stage, OP_AS, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AS, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGB:
     case GL_LUMINANCE:
       // Cv = Cs
-      p = texenv_push_src_rgb(p, stage, OP_CS, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CS, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
     case GL_LUMINANCE_ALPHA:
       // Cv = Cs
-      p = texenv_push_src_rgb(p, stage, OP_CS, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CS, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = As
-      p = texenv_push_src_a(p, stage, OP_AS, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AS, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       break;
@@ -135,33 +148,35 @@ static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const G
 }
 
 static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
+  const GLuint shift_a = pbgl.texenv[texid].shift_a;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGB:
     case GL_LUMINANCE:
       // Cv = Cp * Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_CS, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_CS, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
     case GL_LUMINANCE_ALPHA:
       // Cv = Cp * Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_CS, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_CS, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       break;
@@ -170,33 +185,35 @@ static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const 
 }
 
 static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
+  const GLuint shift_a = pbgl.texenv[texid].shift_a;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGB:
     case GL_LUMINANCE:
       // Cv = Cp + Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_CS, OP_ONE);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_CS, OP_C1);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
     case GL_LUMINANCE_ALPHA:
       // Cv = Cp + Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_ONE, OP_CS, OP_ONE);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_CS, OP_C1);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       break;
@@ -205,23 +222,25 @@ static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuin
 }
 
 static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
+  const GLuint shift_a = pbgl.texenv[texid].shift_a;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_RGB:
       // Cv = Cs
-      p = texenv_push_src_rgb(p, stage, OP_CS, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_CS, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
       // Cv = Cp * (1 - As) + Cs * As
       p = texenv_push_src_rgb(p, stage, OP_CP, OP_AS_INV, OP_CS, OP_AS);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       // this is "undefined" for the rest of the formats
@@ -241,8 +260,10 @@ static inline GLuint texenv_arg_src_gl_to_rc(const texenv_state_t *texenv, const
       return RC_PRIMARY_COLOR;
     case GL_TEXTURE:
       return RC_TEXTURE + texid;
+    case GL_CONSTANT:
+      return RC_CONSTANT_COLOR0;
     default:
-      return 0;
+      return RC_DISCARD;
   }
 }
 
@@ -251,34 +272,35 @@ static inline GLboolean texenv_arg_is_alpha(const texenv_state_t *texenv, const 
   return (operand == GL_SRC_ALPHA || operand == GL_ONE_MINUS_SRC_ALPHA);
 }
 
-static inline GLboolean texenv_arg_is_inverted(const texenv_state_t *texenv, const GLboolean rgb, const int arg) {
+static inline GLuint texenv_arg_mapping(const texenv_state_t *texenv, const GLboolean rgb, const int arg) {
   const GLenum operand = rgb ? texenv->operand_rgb[arg] : texenv->operand_a[arg];
-  return (operand == GL_ONE_MINUS_SRC_COLOR || operand == GL_ONE_MINUS_SRC_ALPHA);
+  return (operand == GL_ONE_MINUS_SRC_COLOR || operand == GL_ONE_MINUS_SRC_ALPHA) ? MAP_UNSIGNED_INV : MAP_UNSIGNED;
 }
 
 static inline GLuint *texenv_push_combine(GLuint *p, const texenv_state_t *texenv, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
-  const texture_t *tex = pbgl.tex[texid].tex;
+  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
+  const GLuint shift_a = pbgl.texenv[texid].shift_a;
 
   switch (texenv->combine_rgb) {
     case GL_REPLACE:
       // spare0 = a = Arg0
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       break;
     case GL_MODULATE:
       // spare0 = a * b = Arg0 * Arg1
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_COMBINE_RGB(1), OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_COMBINE_RGB(1), OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       break;
     case GL_INTERPOLATE:
       // spare0 = a * b + c * d = Arg0 * Arg2 + Arg1 * (1 - Arg2)
       p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_COMBINE_RGB(2), OP_COMBINE_RGB(1), OP_COMBINE_RGB_INV(2));
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       break;
     case GL_ADD:
       // spare0 = a * b + c * d = a * 1 + c * 1 = Arg0 + Arg1
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_ONE, OP_COMBINE_RGB(1), OP_ONE);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_C1, OP_COMBINE_RGB(1), OP_C1);
+      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       break;
     default:
       // TODO: GL_ADD_SIGNED, GL_SUBTRACT, GL_DOT3*
@@ -288,23 +310,23 @@ static inline GLuint *texenv_push_combine(GLuint *p, const texenv_state_t *texen
   switch (texenv->combine_a) {
     case GL_REPLACE:
       // spare0 = a = Arg0
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_ONE, OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_MODULATE:
       // spare0 = a * b = Arg0 * Arg1
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_COMBINE_A(1), OP_ZERO, OP_ZERO);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
+      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_COMBINE_A(1), OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_INTERPOLATE:
       // spare0 = a * b + c * d = Arg0 * Arg2 + Arg1 * (1 - Arg2)
       p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_COMBINE_A(2), OP_COMBINE_A(1), OP_COMBINE_A_INV(2));
-      p = texenv_push_dst_a(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_dst_a(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_a);
       break;
     case GL_ADD:
       // spare0 = a * b + c * d = a * 1 + c * 1 = Arg0 + Arg1
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_ONE, OP_COMBINE_A(1), OP_ONE);
-      p = texenv_push_dst_a(p, stage, GL_FALSE, GL_FALSE, GL_TRUE);
+      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_A1, OP_COMBINE_A(1), OP_A1);
+      p = texenv_push_dst_a(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_a);
       break;
     default:
       // TODO: GL_ADD_SIGNED, GL_SUBTRACT, GL_DOT3*
@@ -350,6 +372,15 @@ GLuint *pbgl_texenv_push(GLuint *p) {
 
   for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
     texenv_state_t *texenv = pbgl.texenv + i;
+
+    // if something uses the constant color register as a source, set that
+    for (GLuint j = 0; j < 3; ++j) {
+      if (texenv->src_a[j] == GL_CONSTANT || texenv->src_rgb[j] == GL_CONSTANT) {
+        p = pb_push1(p, NV097_SET_COMBINER_FACTOR0, texenv->color);
+        break;
+      }
+    }
+
     // TODO: properly handle texture_1d, texture_3d, texture_cube
     const GLboolean tex_enabled =
       pbgl.tex[i].flags.texture_1d ||
@@ -386,15 +417,14 @@ GLuint *pbgl_texenv_push(GLuint *p) {
     }
   }
 
+  GLuint reg_out;
   if (stage == 0) {
-    // textures are disabled, insert default fragment color stage
-    // Cv = Cf
-    p = texenv_push_src_rgb(p, stage, OP_CF, OP_ONE, OP_ZERO, OP_ZERO);
-    p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
-    // Av = Af
-    p = texenv_push_src_a(p, stage, OP_AF, OP_ONE, OP_ZERO, OP_ZERO);
-    p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE);
-    ++stage;
+    // textures are disabled, use the primary color register for output
+    reg_out = RC_PRIMARY_COLOR;
+    stage++;
+  } else {
+    // output the texenv result in SPARE0 that we just calculated
+    reg_out = RC_SPARE0;
   }
 
   // push shader modes
@@ -411,14 +441,14 @@ GLuint *pbgl_texenv_push(GLuint *p) {
     | PBGL_MASK(NV097_SET_COMBINER_CONTROL_FACTOR1, NV097_SET_COMBINER_CONTROL_FACTOR1_SAME_FACTOR_ALL)
     | PBGL_MASK(NV097_SET_COMBINER_CONTROL_ITERATION_COUNT, stage));
   p = pb_push1(p, NV097_SET_COMBINER_SPECULAR_FOG_CW0,
-      PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_SOURCE, RC_ZERO)   | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_INVERSE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_SOURCE, RC_ZERO)   | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_INVERSE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_C_SOURCE, RC_ZERO)   | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_C_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_C_INVERSE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_D_SOURCE, RC_SPARE0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_D_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_D_INVERSE, 0));
+      PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_INVERSE, 0)
+    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_INVERSE, 0)
+    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_C_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_C_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_C_INVERSE, 0)
+    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_D_SOURCE, reg_out) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_D_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_D_INVERSE, 0));
   p = pb_push1(p, NV097_SET_COMBINER_SPECULAR_FOG_CW1,
-      PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_E_SOURCE, RC_ZERO)   | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_E_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_E_INVERSE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_F_SOURCE, RC_ZERO)   | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_F_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_F_INVERSE, 0)
-    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_G_SOURCE, RC_SPARE0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_G_ALPHA, 1) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_G_INVERSE, 0)
+      PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_E_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_E_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_E_INVERSE, 0)
+    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_F_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_F_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_F_INVERSE, 0)
+    | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_G_SOURCE, reg_out) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_G_ALPHA, 1) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_G_INVERSE, 0)
     | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW1_SPECULAR_CLAMP, 0));
 
   return p;
@@ -487,6 +517,30 @@ GL_API void glTexEnvi(GLenum target, GLenum pname, GLint param) {
       pbgl.texenv[pbgl.active_tex_sv].operand_a[idx] = param;
       break;
 
+    case GL_RGB_SCALE:
+      if (param != 1 && param != 2 && param != 4) {
+        pbgl_set_error(GL_INVALID_VALUE);
+        break;
+      }
+      // param already directly maps to NV097_SET_COMBINER_COLOR_OCW_OP_SHIFTLEFTBYx,
+      // except 1, which would map to NOSHIFT_BIAS instead of NOSHIFT
+      if (param == 1) param = 0;
+      TEXENV_DIRTY_IF_CHANGED(shift_rgb, param);
+      pbgl.texenv[pbgl.active_tex_sv].shift_rgb = param;
+      break;
+
+    case GL_ALPHA_SCALE:
+      if (param != 1 && param != 2 && param != 4) {
+        pbgl_set_error(GL_INVALID_VALUE);
+        break;
+      }
+      // param already directly maps to NV097_SET_COMBINER_ALPHA_OCW_OP_SHIFTLEFTBYx
+      // except 1, which would map to NOSHIFT_BIAS instead of NOSHIFT
+      if (param == 1) param = 0;
+      TEXENV_DIRTY_IF_CHANGED(shift_a, param);
+      pbgl.texenv[pbgl.active_tex_sv].shift_a = param;
+      break;
+
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
@@ -494,6 +548,76 @@ GL_API void glTexEnvi(GLenum target, GLenum pname, GLint param) {
 }
 
 GL_API void glTexEnvf(GLenum target, GLenum pname, GLfloat param) {
-  // TODO
-  glTexEnvi(target, pname, (GLint)param);
+  if (target != GL_TEXTURE_ENV) {
+    // TODO: support others
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  switch (pname) {
+    default:
+      glTexEnvi(target, pname, (GLint)param);
+      break;
+  }
+}
+
+GL_API void glTexEnvfv(GLenum target, GLenum pname, const GLfloat *param) {
+  if (target != GL_TEXTURE_ENV) {
+    // TODO: support others
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  if (!param) {
+    pbgl_set_error(GL_INVALID_VALUE);
+    return;
+  }
+
+  switch (pname) {
+    case GL_TEXTURE_ENV_COLOR: {
+      const GLuint r = (param[0] * 255.f);
+      const GLuint g = (param[1] * 255.f);
+      const GLuint b = (param[2] * 255.f);
+      const GLuint a = (param[3] * 255.f);
+      const GLuint rgba = (a << 24) | (r << 16) | (g << 8) | b;
+      TEXENV_DIRTY_IF_CHANGED(color, rgba);
+      pbgl.texenv[pbgl.active_tex_sv].color = rgba;
+      break;
+    }
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      break;
+  }
+}
+
+GL_API void glTexEnviv(GLenum target, GLenum pname, const GLint *param) {
+  if (target != GL_TEXTURE_ENV) {
+    // TODO: support others
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  if (!param) {
+    pbgl_set_error(GL_INVALID_VALUE);
+    return;
+  }
+
+  switch (pname) {
+    case GL_TEXTURE_ENV_COLOR: {
+      // "Integer color components are interpreted linearly such that
+      // the most positive integer maps to 1.0, and the most negative integer maps to -1.0""
+      // what the fuck did they mean by this?
+      const GLuint r = ((GLdouble)param[0] / (1.0 + (GLdouble)INT_MAX) * 255.0);
+      const GLuint g = ((GLdouble)param[1] / (1.0 + (GLdouble)INT_MAX) * 255.0);
+      const GLuint b = ((GLdouble)param[2] / (1.0 + (GLdouble)INT_MAX) * 255.0);
+      const GLuint a = ((GLdouble)param[3] / (1.0 + (GLdouble)INT_MAX) * 255.0);
+      const GLuint rgba = (a << 24) | (r << 16) | (g << 8) | b;
+      TEXENV_DIRTY_IF_CHANGED(color, rgba);
+      pbgl.texenv[pbgl.active_tex_sv].color = rgba;
+      break;
+    }
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      break;
+  }
 }

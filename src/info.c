@@ -57,7 +57,7 @@ GL_API void glGetBooleanv(GLenum pname, GLboolean *params) {
     case GL_TEXTURE_1D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_1d; break;
     case GL_TEXTURE_2D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_2d; break;
     case GL_TEXTURE_3D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_3d; break;
-    case GL_TEXTURE_COORD_ARRAY:   *params = pbgl.varray[VARR_TEXCOORD].enabled; break;
+    case GL_TEXTURE_COORD_ARRAY:   *params = pbgl.tex[pbgl.active_tex_cl].varray.enabled; break;
     case GL_TEXTURE_GEN_Q:         *params = pbgl.flags.texgen_q; break;
     case GL_TEXTURE_GEN_R:         *params = pbgl.flags.texgen_r; break;
     case GL_TEXTURE_GEN_S:         *params = pbgl.flags.texgen_s; break;
@@ -137,10 +137,10 @@ GL_API void glGetFloatv(GLenum pname, GLfloat *params) {
       params[2] = pbgl.varray[VARR_NORMAL].value.z;
       break;
     case GL_CURRENT_TEXTURE_COORDS:
-      params[0] = pbgl.varray[VARR_TEXCOORD].value.x;
-      params[1] = pbgl.varray[VARR_TEXCOORD].value.y;
-      params[2] = pbgl.varray[VARR_TEXCOORD].value.z;
-      params[3] = pbgl.varray[VARR_TEXCOORD].value.w;
+      params[0] = pbgl.tex[pbgl.active_tex_cl].varray.value.x;
+      params[1] = pbgl.tex[pbgl.active_tex_cl].varray.value.y;
+      params[2] = pbgl.tex[pbgl.active_tex_cl].varray.value.z;
+      params[3] = pbgl.tex[pbgl.active_tex_cl].varray.value.w;
       break;
     case GL_MODELVIEW_MATRIX:
       memcpy(params, pbgl.mtx[MTX_MODELVIEW].mtx.v, sizeof(GLfloat) * 16);

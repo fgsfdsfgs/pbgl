@@ -127,8 +127,8 @@ typedef struct {
   GLenum mode;
   GLenum combine_rgb;
   GLenum combine_a;
-  GLfloat scale_rgb;
-  GLfloat scale_a;
+  GLuint shift_rgb;
+  GLuint shift_a;
   GLenum src_rgb[3];
   GLenum src_a[3];
   GLenum operand_rgb[3];
@@ -206,7 +206,6 @@ typedef struct {
       GLuint texcoord_flag : 1;
       GLuint normal_flag : 1;
       GLuint fogcoord_flag : 1;
-      GLuint multitexcoord_flag : 1;
     };
     GLuint flags;
   };
