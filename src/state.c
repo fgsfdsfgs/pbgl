@@ -463,7 +463,6 @@ static inline void set_feature(GLenum feature, GLboolean value) {
     case GL_FOG:
       FLAG_DIRTY_IF_CHANGED(fog, fog, value);
       pbgl.flags.fog = value;
-      pbgl.fog.dirty = GL_TRUE;
       break;
     case GL_LIGHT0 ... GL_LIGHT7:
       idx = feature - GL_LIGHT0;
