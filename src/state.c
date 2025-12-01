@@ -225,17 +225,17 @@ GLboolean pbgl_state_flush(void) {
       if (pbgl.flags.scissor_test) {
       GLint xmin = pbgl.scissor.x;
       GLint xmax = pbgl.scissor.x + pbgl.scissor.w - 1;
-      GLint ymax = pbgl.view.h - pbgl.scissor.y - 1;
-      GLint ymin = pbgl.view.h - pbgl.scissor.y - pbgl.scissor.h;
+      GLint ymax = pbgl.fb_height - pbgl.scissor.y - 1;
+      GLint ymin = pbgl.fb_height - pbgl.scissor.y - pbgl.scissor.h;
       xmin = imax(xmin, 0);
       ymin = imax(ymin, 0);
-      xmax = imin(xmax, pbgl.view.w - 1);
-      ymax = imin(ymax, pbgl.view.h - 1);
+      xmax = imin(xmax, pbgl.fb_width - 1);
+      ymax = imin(ymax, pbgl.fb_height - 1);
       p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, xmin | (xmax << 16));
       p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, ymin | (ymax << 16));
     } else {
-      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, 0 | ((pbgl.view.w - 1) << 16));
-      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, 0 | ((pbgl.view.h - 1) << 16));
+      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, 0 | ((pbgl.fb_width - 1) << 16));
+      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, 0 | ((pbgl.fb_height - 1) << 16));
     }
     pbgl.scissor.dirty = GL_FALSE;
   }
