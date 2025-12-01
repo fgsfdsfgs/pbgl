@@ -64,6 +64,7 @@ int pbgl_init(int init_pbkit) {
   p = push_command_boolean(p, NV097_SET_NORMALIZATION_ENABLE, 0);
   p = push_command_boolean(p, NV097_SET_ZMIN_MAX_CONTROL, 1);
   p = push_command_boolean(p, NV097_SET_COMPRESS_ZBUFFER_EN, 1);
+  p = push_command_boolean(p, NV097_SET_WINDOW_CLIP_TYPE, 0);
   p = push_command_parameter(p, NV097_SET_CONTROL0, NV097_SET_CONTROL0_TEXTUREPERSPECTIVE);
   p = push_command_parameter(p, NV097_SET_SKIN_MODE, NV097_SET_SKIN_MODE_OFF);
   p = push_command_parameter(p, NV097_SET_SHADER_OTHER_STAGE_INPUT,

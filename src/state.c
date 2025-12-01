@@ -92,6 +92,14 @@ void pbgl_state_init(void) {
   pbgl.lightmodel.ambient = (vec4f){{ 0.2f, 0.2f, 0.2f, 1.0f }};
   pbgl.lightmodel.dirty = GL_TRUE;
 
+  pbgl.fog = (fog_state_t) {
+    .mode = GL_EXP,
+    .start = 0.f,
+    .end = 1.f,
+    .density = 1.f,
+  };
+  pbgl.fog.dirty = GL_TRUE;
+
   pbgl.varray[VARR_COLOR1].value   = (vec4f) {{ 1.f, 1.f, 1.f, 1.f }};
   pbgl.varray[VARR_NORMAL].value   = (vec4f) {{ 0.f, 0.f, 1.f, 0.f }};
   for (int i = 0; i < VARR_COUNT; ++i)
@@ -213,25 +221,22 @@ GLboolean pbgl_state_flush(void) {
 
   GLuint *p = pb_begin();
 
-  if (pbgl.scissor.dirty && pbgl.flags.scissor_test) {
-    #define NV097_SET_WINDOW_CLIP_TYPE 0x000002B4
-    #define NV097_SET_WINDOW_CLIP_HORIZONTAL 0x000002C0
-    #define NV097_SET_WINDOW_CLIP_VERTICAL 0x000002E0
-
-    GLint xmin = pbgl.scissor.x;
-    GLint xmax = pbgl.scissor.x + pbgl.scissor.w - 1;
-    GLint ymax = pbgl.view.h - pbgl.scissor.y - 1;
-    GLint ymin = pbgl.view.h - pbgl.scissor.y - pbgl.scissor.h;
-
-    xmin = imax(xmin, 0);
-    ymin = imax(ymin, 0);
-    xmax = imin(xmax, pbgl.view.w - 1);
-    ymax = imin(ymax, pbgl.view.h - 1);
-
-
-    p = push_command_boolean(p, NV097_SET_WINDOW_CLIP_TYPE, false);
-    p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, xmin | (xmax << 16));
-    p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, ymin | (ymax << 16));
+  if (pbgl.scissor.dirty) {
+      if (pbgl.flags.scissor_test) {
+      GLint xmin = pbgl.scissor.x;
+      GLint xmax = pbgl.scissor.x + pbgl.scissor.w - 1;
+      GLint ymax = pbgl.view.h - pbgl.scissor.y - 1;
+      GLint ymin = pbgl.view.h - pbgl.scissor.y - pbgl.scissor.h;
+      xmin = imax(xmin, 0);
+      ymin = imax(ymin, 0);
+      xmax = imin(xmax, pbgl.view.w - 1);
+      ymax = imin(ymax, pbgl.view.h - 1);
+      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, xmin | (xmax << 16));
+      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, ymin | (ymax << 16));
+    } else {
+      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_HORIZONTAL, 0 | ((pbgl.view.w - 1) << 16));
+      p = push_command_parameter(p, NV097_SET_WINDOW_CLIP_VERTICAL, 0 | ((pbgl.view.h - 1) << 16));
+    }
     pbgl.scissor.dirty = GL_FALSE;
   }
 
@@ -303,7 +308,7 @@ GLboolean pbgl_state_flush(void) {
     p = push_command_boolean(p, NV097_SET_FOG_ENABLE, pbgl.flags.fog);
     p = push_command_parameter(p, NV097_SET_FOG_MODE, pbgl.fog.mode);
     p = push_command_parameter(p, NV097_SET_FOG_COLOR, pbgl.fog.color);
-    // TODO
+    // TODO: NV097_SET_FOG_PARAMS
     pbgl.fog.dirty = GL_FALSE;
   }
 
@@ -342,11 +347,6 @@ GLboolean pbgl_state_flush(void) {
       // TODO:
       pbgl.material[i].dirty = GL_FALSE;
     }
-  }
-
-  if (pbgl.texgen_dirty) {
-    p = pbgl_texgen_push(p);
-    pbgl.texgen_dirty = GL_FALSE;
   }
 
   pb_end(p);
@@ -410,6 +410,13 @@ GLboolean pbgl_state_flush(void) {
     pbgl.texenv_dirty = GL_FALSE;
   }
 
+  if (pbgl.texgen_dirty) {
+    p = pb_begin();
+    p = pbgl_texgen_push(p);
+    pb_end(p);
+    pbgl.texgen_dirty = GL_FALSE;
+  }
+
   pbgl.state_dirty = GL_FALSE;
 
   return GL_TRUE;
@@ -456,6 +463,7 @@ static inline void set_feature(GLenum feature, GLboolean value) {
     case GL_FOG:
       FLAG_DIRTY_IF_CHANGED(fog, fog, value);
       pbgl.flags.fog = value;
+      pbgl.fog.dirty = GL_TRUE;
       break;
     case GL_LIGHT0 ... GL_LIGHT7:
       idx = feature - GL_LIGHT0;
