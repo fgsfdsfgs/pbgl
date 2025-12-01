@@ -10,6 +10,7 @@
 #include "error.h"
 #include "light.h"
 #include "texenv.h"
+#include "texgen.h"
 #include "push.h"
 #include "misc.h"
 #include "state.h"
@@ -113,9 +114,23 @@ void pbgl_state_init(void) {
       .shift_a     = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT,
       .color_dirty = GL_TRUE,
     };
+    pbgl.texgen[i].coord[0] = (texgen_coord_state_t) {
+      .mode = GL_EYE_LINEAR,
+      .obj_plane = (vec4f) {{ 1.f, 0.f, 0.f, 0.f }},
+      .eye_plane = (vec4f) {{ 1.f, 0.f, 0.f, 0.f }},
+    };
+    pbgl.texgen[i].coord[1] = (texgen_coord_state_t) {
+      .mode = GL_EYE_LINEAR,
+      .obj_plane = (vec4f) {{ 0.f, 1.f, 0.f, 0.f }},
+      .eye_plane = (vec4f) {{ 0.f, 1.f, 0.f, 0.f }},
+    };
+    pbgl.texgen[i].coord[2] = (texgen_coord_state_t) { .mode = GL_EYE_LINEAR };
+    pbgl.texgen[i].coord[3] = (texgen_coord_state_t) { .mode = GL_EYE_LINEAR };
+    pbgl.texgen[i].dirty = GL_TRUE;
   }
   pbgl.tex_any_dirty = GL_TRUE;
   pbgl.texenv_dirty = GL_TRUE;
+  pbgl.texgen_dirty = GL_TRUE;
 
   for (int i = 0; i < MTX_COUNT; ++i)
     pbgl_mtx_reset(i);
@@ -329,6 +344,11 @@ GLboolean pbgl_state_flush(void) {
     }
   }
 
+  if (pbgl.texgen_dirty) {
+    p = pbgl_texgen_push(p);
+    pbgl.texgen_dirty = GL_FALSE;
+  }
+
   pb_end(p);
 
   if (pbgl.light_any_dirty) {
@@ -472,22 +492,19 @@ static inline void set_feature(GLenum feature, GLboolean value) {
       }
       pbgl.tex[pbgl.active_tex_sv].flags.texture_2d = value;
       break;
-    case GL_TEXTURE_GEN_S:
-      pbgl.flags.texgen_s = value;
-      break;
-    case GL_TEXTURE_GEN_T:
-      pbgl.flags.texgen_t = value;
-      break;
-    case GL_TEXTURE_GEN_R:
-      pbgl.flags.texgen_r = value;
-      break;
-    case GL_TEXTURE_GEN_Q:
-      pbgl.flags.texgen_q = value;
+    case GL_TEXTURE_GEN_S ... GL_TEXTURE_GEN_Q:
+      idx = feature - GL_TEXTURE_GEN_S;
+      if (pbgl.texgen[pbgl.active_tex_sv].coord[idx].enabled != value) {
+        pbgl.texgen[pbgl.active_tex_sv].coord[idx].enabled = value;
+        pbgl.texgen[pbgl.active_tex_sv].dirty = GL_TRUE;
+        pbgl.state_dirty = pbgl.texgen_dirty = GL_TRUE;
+      }
       break;
     case GL_LINE_SMOOTH:
       if (pbgl.flags.line_smooth != value) {
           pbgl.flags.line_smooth = value;
           pbgl.line.dirty = GL_TRUE;
+          pbgl.state_dirty = GL_TRUE;
       }
       break;
     default:
@@ -549,10 +566,10 @@ GL_API GLboolean glIsEnabled(GLenum feature) {
     case GL_POLYGON_OFFSET_FILL:  return pbgl.flags.poly_offset;
     case GL_TEXTURE_1D:           return pbgl.tex[pbgl.active_tex_sv].flags.texture_1d;
     case GL_TEXTURE_2D:           return pbgl.tex[pbgl.active_tex_sv].flags.texture_2d;
-    case GL_TEXTURE_GEN_S:        return pbgl.flags.texgen_s;
-    case GL_TEXTURE_GEN_T:        return pbgl.flags.texgen_t;
-    case GL_TEXTURE_GEN_R:        return pbgl.flags.texgen_r;
-    case GL_TEXTURE_GEN_Q:        return pbgl.flags.texgen_q;
+    case GL_TEXTURE_GEN_S:        return pbgl.texgen[pbgl.active_tex_sv].coord[0].enabled;
+    case GL_TEXTURE_GEN_T:        return pbgl.texgen[pbgl.active_tex_sv].coord[1].enabled;
+    case GL_TEXTURE_GEN_R:        return pbgl.texgen[pbgl.active_tex_sv].coord[2].enabled;
+    case GL_TEXTURE_GEN_Q:        return pbgl.texgen[pbgl.active_tex_sv].coord[3].enabled;
     case GL_LINE_SMOOTH:          return pbgl.flags.line_smooth;
     default:
       pbgl_set_error(GL_INVALID_ENUM);

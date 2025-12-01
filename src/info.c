@@ -58,10 +58,10 @@ GL_API void glGetBooleanv(GLenum pname, GLboolean *params) {
     case GL_TEXTURE_2D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_2d; break;
     case GL_TEXTURE_3D:            *params = pbgl.tex[pbgl.active_tex_sv].flags.texture_3d; break;
     case GL_TEXTURE_COORD_ARRAY:   *params = pbgl.tex[pbgl.active_tex_cl].varray.enabled; break;
-    case GL_TEXTURE_GEN_Q:         *params = pbgl.flags.texgen_q; break;
-    case GL_TEXTURE_GEN_R:         *params = pbgl.flags.texgen_r; break;
-    case GL_TEXTURE_GEN_S:         *params = pbgl.flags.texgen_s; break;
-    case GL_TEXTURE_GEN_T:         *params = pbgl.flags.texgen_t; break;
+    case GL_TEXTURE_GEN_Q:         *params = pbgl.texgen[pbgl.active_tex_sv].coord[0].enabled; break;
+    case GL_TEXTURE_GEN_R:         *params = pbgl.texgen[pbgl.active_tex_sv].coord[1].enabled; break;
+    case GL_TEXTURE_GEN_S:         *params = pbgl.texgen[pbgl.active_tex_sv].coord[2].enabled; break;
+    case GL_TEXTURE_GEN_T:         *params = pbgl.texgen[pbgl.active_tex_sv].coord[3].enabled; break;
     case GL_VERTEX_ARRAY:          *params = pbgl.varray[VARR_POSITION].enabled; break;
     case GL_COLOR_WRITEMASK:
       params[0] = (pbgl.colormask.value & NV097_SET_COLOR_MASK_RED_WRITE_ENABLE) != 0;

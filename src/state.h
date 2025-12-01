@@ -21,12 +21,8 @@ typedef union {
     GLuint fog          : 1; // 7
     GLuint lighting     : 1; // 8
     GLuint poly_offset  : 1; // 9
-    GLuint texgen_q     : 1; // 10
-    GLuint texgen_r     : 1; // 11
-    GLuint texgen_s     : 1; // 12
-    GLuint texgen_t     : 1; // 13
-    GLuint normalize    : 1; // 14
-    GLuint line_smooth  : 1; // 15
+    GLuint normalize    : 1; // 10
+    GLuint line_smooth  : 1; // 11
   };
   GLuint word;
 } server_flags_t;
@@ -137,16 +133,24 @@ typedef struct {
 } texenv_state_t;
 
 typedef struct {
+  GLboolean enabled;
+  GLenum mode;
+  vec4f obj_plane;
+  vec4f eye_plane;
+} texgen_coord_state_t;
+
+typedef struct {
+  GLboolean dirty;
+  texgen_coord_state_t coord[4]; // STRQ
+} texgen_state_t;
+
+typedef struct {
   union texenv_flags_u {
     struct {
       GLuint texture_1d   : 1; // 0
       GLuint texture_2d   : 1; // 1
       GLuint texture_3d   : 1; // 2
       GLuint texture_cube : 1; // 3
-      GLuint texgen_q     : 1; // 4
-      GLuint texgen_r     : 1; // 5
-      GLuint texgen_s     : 1; // 6
-      GLuint texgen_t     : 1; // 7
     };
     GLuint word;
   } flags;
@@ -240,6 +244,9 @@ typedef struct {
 
   texenv_state_t texenv[TEXUNIT_COUNT];
   GLboolean texenv_dirty;
+
+  texgen_state_t texgen[TEXUNIT_COUNT];
+  GLboolean texgen_dirty;
 
   light_state_t light[LIGHT_COUNT];
   GLboolean light_any_dirty;
