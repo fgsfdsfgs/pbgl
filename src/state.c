@@ -478,6 +478,7 @@ static inline void set_feature(GLenum feature, GLboolean value) {
       if (pbgl.tex[pbgl.active_tex_sv].flags.texture_1d != value) {
         pbgl.tex_any_dirty = GL_TRUE;
         pbgl.texenv_dirty = GL_TRUE;
+        pbgl.texgen_dirty = GL_TRUE;
         pbgl.state_dirty = GL_TRUE;
         pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
       }
@@ -487,6 +488,7 @@ static inline void set_feature(GLenum feature, GLboolean value) {
       if (pbgl.tex[pbgl.active_tex_sv].flags.texture_2d != value) {
         pbgl.tex_any_dirty = GL_TRUE;
         pbgl.texenv_dirty = GL_TRUE;
+        pbgl.texgen_dirty = GL_TRUE;
         pbgl.state_dirty = GL_TRUE;
         pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
       }
@@ -526,10 +528,10 @@ static inline void set_client_state(GLenum state, GLboolean value) {
     return;
   }
 
-  if (arr == VARR_TEXCOORD) {
+  if (arr == VARR_TEXCOORD && pbgl.tex[pbgl.active_tex_cl].varray.enabled != value) {
     pbgl.tex[pbgl.active_tex_cl].varray.enabled = value;
     pbgl.tex[pbgl.active_tex_cl].varray.dirty = GL_TRUE;
-  } else {
+  } else if (pbgl.varray[arr].enabled != value) {
     pbgl.varray[arr].enabled = value;
     pbgl.varray[arr].dirty = GL_TRUE;
   }
@@ -742,7 +744,7 @@ GL_API void glPolygonMode(GLenum face, GLenum mode) {
       return;
   }
 
-  pbgl.polymode.dirty = GL_TRUE;
+  pbgl.state_dirty = pbgl.polymode.dirty = GL_TRUE;
 }
 
 GL_API void glPointSize(GLfloat size) {
