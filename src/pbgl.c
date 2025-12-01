@@ -101,8 +101,18 @@ int pbgl_init(int init_pbkit) {
 
   p = pb_begin();
   for (GLuint i = 0, ofs = 0; i < TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4) {
-    p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), 0x0003FFC0);
+    p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_TX_ENABLE(i), 0);
     p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, mat4_identity.v);
+  }
+  pb_end(p);
+
+  // clear all the combiner registers that we won't use
+  p = pb_begin();
+  for (GLuint i = 4; i < 8; ++i) {
+    p = pb_push1(p, NV097_SET_COMBINER_COLOR_ICW + i * 4, 0);
+    p = pb_push1(p, NV097_SET_COMBINER_COLOR_OCW + i * 4, 0);
+    p = pb_push1(p, NV097_SET_COMBINER_ALPHA_ICW + i * 4, 0);
+    p = pb_push1(p, NV097_SET_COMBINER_ALPHA_OCW + i * 4, 0);
   }
   pb_end(p);
 

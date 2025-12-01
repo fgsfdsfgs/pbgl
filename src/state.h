@@ -123,7 +123,7 @@ typedef struct {
 } material_state_t;
 
 typedef struct {
-  GLenum dirty;
+  GLboolean color_dirty;
   GLenum mode;
   GLenum combine_rgb;
   GLenum combine_a;
@@ -255,6 +255,9 @@ typedef struct {
 
   GLuint clear_color;
   GLuint clear_zstencil;
+
+  GLuint pack_align;
+  GLuint unpack_align;
 
   GLuint fb_width;
   GLuint fb_height;

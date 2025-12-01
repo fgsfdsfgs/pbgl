@@ -373,12 +373,10 @@ GLuint *pbgl_texenv_push(GLuint *p) {
   for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
     texenv_state_t *texenv = pbgl.texenv + i;
 
-    // if something uses the constant color register as a source, set that
-    for (GLuint j = 0; j < 3; ++j) {
-      if (texenv->src_a[j] == GL_CONSTANT || texenv->src_rgb[j] == GL_CONSTANT) {
-        p = pb_push1(p, NV097_SET_COMBINER_FACTOR0, texenv->color);
-        break;
-      }
+    // set constant color if it has changed
+    if (texenv->color_dirty) {
+      p = pb_push1(p, NV097_SET_COMBINER_FACTOR0, texenv->color);
+      texenv->color_dirty = GL_FALSE;
     }
 
     // TODO: properly handle texture_1d, texture_3d, texture_cube
@@ -415,6 +413,14 @@ GLuint *pbgl_texenv_push(GLuint *p) {
 
       ++stage;
     }
+  }
+
+  // zero out the rest of the stages
+  for (GLuint i = stage; i < TEXUNIT_COUNT; ++i) {
+    p = pb_push1(p, NV097_SET_COMBINER_COLOR_ICW + i * 4, 0);
+    p = pb_push1(p, NV097_SET_COMBINER_COLOR_OCW + i * 4, 0);
+    p = pb_push1(p, NV097_SET_COMBINER_ALPHA_ICW + i * 4, 0);
+    p = pb_push1(p, NV097_SET_COMBINER_ALPHA_OCW + i * 4, 0);
   }
 
   GLuint reg_out;
@@ -580,8 +586,11 @@ GL_API void glTexEnvfv(GLenum target, GLenum pname, const GLfloat *param) {
       const GLuint b = (param[2] * 255.f);
       const GLuint a = (param[3] * 255.f);
       const GLuint rgba = (a << 24) | (r << 16) | (g << 8) | b;
-      TEXENV_DIRTY_IF_CHANGED(color, rgba);
-      pbgl.texenv[pbgl.active_tex_sv].color = rgba;
+      if (pbgl.texenv[pbgl.active_tex_sv].color != rgba) {
+        pbgl.state_dirty = pbgl.texenv_dirty = GL_TRUE;
+        pbgl.texenv[pbgl.active_tex_sv].color_dirty = GL_TRUE;
+        pbgl.texenv[pbgl.active_tex_sv].color = rgba;
+      }
       break;
     }
     default:
@@ -612,8 +621,11 @@ GL_API void glTexEnviv(GLenum target, GLenum pname, const GLint *param) {
       const GLuint b = ((GLdouble)param[2] / (1.0 + (GLdouble)INT_MAX) * 255.0);
       const GLuint a = ((GLdouble)param[3] / (1.0 + (GLdouble)INT_MAX) * 255.0);
       const GLuint rgba = (a << 24) | (r << 16) | (g << 8) | b;
-      TEXENV_DIRTY_IF_CHANGED(color, rgba);
-      pbgl.texenv[pbgl.active_tex_sv].color = rgba;
+      if (pbgl.texenv[pbgl.active_tex_sv].color != rgba) {
+        pbgl.state_dirty = pbgl.texenv_dirty = GL_TRUE;
+        pbgl.texenv[pbgl.active_tex_sv].color_dirty = GL_TRUE;
+        pbgl.texenv[pbgl.active_tex_sv].color = rgba;
+      }
       break;
     }
     default:

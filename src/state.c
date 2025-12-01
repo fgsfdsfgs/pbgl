@@ -14,10 +14,9 @@
 #include "misc.h"
 #include "state.h"
 
-// TODO: what do the bits mean?
-#define NV_TEX_DISABLE   0x0003FFC0
-#define NV_TEX_ENABLE    0x40000000
-#define NV_TEX_ALPHAKILL (1 << 2)
+#define NV_TEX_DISABLE   PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_ENABLE, 0)
+#define NV_TEX_ENABLE    PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_ENABLE, 1)
+#define NV_TEX_ALPHAKILL PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_ALPHA_KILL_ENABLE, 1)
 
 #define FLAG_DIRTY_IF_CHANGED(state, flag, value) \
   if (pbgl.flags.flag != value) \
@@ -112,7 +111,7 @@ void pbgl_state_init(void) {
       .color       = 0x00000000,
       .shift_rgb   = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT,
       .shift_a     = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT,
-      .dirty       = GL_TRUE,
+      .color_dirty = GL_TRUE,
     };
   }
   pbgl.tex_any_dirty = GL_TRUE;
@@ -147,6 +146,9 @@ void pbgl_state_init(void) {
   pbgl.line.dirty = GL_TRUE;
 
   pbgl.clear_zstencil = 0xFFFFFF00; // TODO: this assumes 24-bit z + 8-bit stencil
+
+  pbgl.pack_align = 4;
+  pbgl.unpack_align = 4; // TODO: implement this
 
   pbgl.state_dirty = GL_TRUE;
 
@@ -665,7 +667,21 @@ GL_API void glLineWidth(GLfloat width) {
 }
 
 GL_API void glPixelStorei(GLenum pname, GLint param) {
-  // TODO:
+  if (param != 1 && param != 2 && param != 4 && param != 8) {
+    pbgl_set_error(GL_INVALID_VALUE);
+    return;
+  }
+  switch (pname) {
+    case GL_PACK_ALIGNMENT:
+      pbgl.pack_align = param;
+      break;
+    case GL_UNPACK_ALIGNMENT:
+      pbgl.unpack_align = param;
+      break;
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      break;
+  }
 }
 
 GL_API void glPolygonMode(GLenum face, GLenum mode) {
