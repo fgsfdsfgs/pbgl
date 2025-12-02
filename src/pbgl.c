@@ -21,7 +21,7 @@ static GLboolean pbkit_do_deinit = GL_FALSE;
 
 // workaround for pbkit enabling the wrong Z buffer mode
 static inline void pbgl_target_back_buffer(void) {
-  pb_target_back_buffer();
+  while (pb_finished());
   // override Z-buffer mode set by pbkit's set_draw_buffer() for no apparent reason
   uint32_t *p = pb_begin();
   p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_W_YUV_FPZ_FLAGS, 0x00100001);
@@ -138,12 +138,13 @@ int pbgl_init(int init_pbkit) {
   // flush state right away just in case
   pbgl_state_flush();
 
-  // prepare for drawing the first frame
-  pb_reset();
-  pbgl_target_back_buffer();
-
   // wait for anything that's still happening just in case (probably not necessary)
   while (pb_busy());
+
+  // prepare for drawing the first frame
+  pbgl_target_back_buffer();
+  while (pb_busy());
+  pb_reset();
 
   // restore vars
   pbgl.swap_interval = swap_interval;
@@ -163,10 +164,6 @@ int pbgl_get_swap_interval(void) {
 }
 
 void pbgl_swap_buffers(void) {
-  // swap buffers
-  while (pb_busy());
-  while (pb_finished());
-
   // wait up to $swap_interval vblanks
   // same code as in xsm64
   GLint now = pb_get_vbl_counter();
@@ -174,8 +171,11 @@ void pbgl_swap_buffers(void) {
       now = pb_wait_for_vbl();
   pbgl.last_swap = now;
 
-  pb_reset();
+  // swap buffers
   pbgl_target_back_buffer();
+  while (pb_busy());
+
+  pb_reset();
 }
 
 void *pbgl_alloc(unsigned int size, int dynamic) {
