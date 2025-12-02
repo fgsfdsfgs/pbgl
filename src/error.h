@@ -1,6 +1,7 @@
 #ifndef _PBGL_ERROR_H
 #define _PBGL_ERROR_H
 
+#include <stdlib.h>
 #include "GL/gl.h"
 #include "GL/glext.h"
 
