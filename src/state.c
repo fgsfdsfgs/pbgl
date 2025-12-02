@@ -197,6 +197,7 @@ static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
     const GLuint tidx = i * 64;
     if (tu->tex && enable != NV_TEX_DISABLE) {
       // note: we only operate on swizzled textures
+      const GLuint texmat = MTX_TEXTURE0 + i;
       p = push_command_parameter(p, NV097_SET_TEXTURE_OFFSET + tidx, tu->tex->nv.addr);
       p = push_command_parameter(p, NV097_SET_TEXTURE_FORMAT + tidx, tu->tex->nv.format);
       p = push_command_parameter(p, NV097_SET_TEXTURE_ADDRESS + tidx, tu->tex->nv.wrap);
@@ -204,7 +205,7 @@ static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
         PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MIN_LOD_CLAMP, 0) |
         PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MAX_LOD_CLAMP, tu->tex->mipmax - 1));
       p = push_command_parameter(p, NV097_SET_TEXTURE_FILTER + tidx, tu->tex->nv.filter);
-      p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, !pbgl.mtx[MTX_TEXTURE].identity);
+      p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, !pbgl.mtx[texmat].identity);
     } else {
       p = push_command_parameter(p, NV097_SET_TEXTURE_CONTROL0 + tidx, NV_TEX_DISABLE);
       p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, GL_FALSE);
@@ -370,6 +371,7 @@ GLboolean pbgl_state_flush(void) {
 
   if (pbgl.mtx_any_dirty) {
     p = pb_begin();
+    // push MVP
     if (pbgl.mtx[MTX_PROJECTION].dirty || pbgl.mtx[MTX_MODELVIEW].dirty) {
       mat4f tmp;
       mat4_mul(&tmp, &pbgl.view.mtx, &pbgl.mtx[MTX_PROJECTION].mtx);
@@ -389,16 +391,14 @@ GLboolean pbgl_state_flush(void) {
       p = push_command_matrix4x4_transposed(p, NV097_SET_COMPOSITE_MATRIX, tmp.v);
       pbgl.mtx[MTX_PROJECTION].dirty = pbgl.mtx[MTX_MODELVIEW].dirty = GL_FALSE;
     }
-    pb_end(p);
-    if (pbgl.mtx[MTX_TEXTURE].dirty) {
-      // push same texture matrix for all textures
-      // FIXME: each texunit should have its own
-      p = pb_begin();
-      for (GLuint i = 0, ofs = 0; i < TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4)
-        p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, pbgl.mtx[MTX_TEXTURE].mtx.v);
-      pb_end(p);
-      pbgl.mtx[MTX_TEXTURE].dirty = GL_FALSE;
+    // push texture matrices
+    for (GLuint i = MTX_TEXTURE0, ofs = 0; i < MTX_TEXTURE0 + TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4) {
+      if (pbgl.mtx[i].dirty) {
+        //p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, pbgl.mtx[i].mtx.v);
+        pbgl.mtx[i].dirty = GL_FALSE;
+      }
     }
+    pb_end(p);
     pbgl.mtx_any_dirty = GL_FALSE;
   }
 

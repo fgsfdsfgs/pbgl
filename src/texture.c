@@ -860,6 +860,10 @@ GL_API void glActiveTexture(GLenum tex) {
     return;
   }
   pbgl.active_tex_sv = tex - GL_TEXTURE0;
+
+  // if GL_TEXTURE is the current matrix stack, point it to the one for this tex unit
+  if (pbgl.mtx_current >= MTX_TEXTURE0)
+    pbgl.mtx_current = MTX_TEXTURE0 + pbgl.active_tex_sv;
 }
 
 GL_API void glClientActiveTexture(GLenum tex) {

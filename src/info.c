@@ -87,7 +87,7 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
     case GL_DEPTH_FUNC:                 *params = pbgl.depth.func + 0x200; break;
     case GL_FRONT_FACE:                 *params = pbgl.cullface.frontface; break;
     case GL_GREEN_BITS:                 *params = 8; break; // TODO: read from current video mode?
-    case GL_MATRIX_MODE:                *params = pbgl.mtx_current; break;
+    case GL_MATRIX_MODE:                *params = pbgl_mtx_get_gl_index(pbgl.mtx_current); break;
     case GL_MAX_MODELVIEW_STACK_DEPTH:  *params = MTX_STACK_SIZE_MV; break;
     case GL_MAX_PROJECTION_STACK_DEPTH: *params = MTX_STACK_SIZE_P; break;
     case GL_MAX_TEXTURE_UNITS:          *params = TEXUNIT_COUNT; break;
@@ -100,7 +100,7 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
     case GL_SHADE_MODEL:                *params = GL_SMOOTH; break; // TODO
     case GL_STENCIL_BITS:               *params = 8; break; // TODO: read from current video mode?
     case GL_STENCIL_FUNC:               *params = pbgl.stencil.func + 0x200; break;
-    case GL_TEXTURE_STACK_DEPTH:        *params = pbgl_mtx_stack_depth(MTX_TEXTURE); break;
+    case GL_TEXTURE_STACK_DEPTH:        *params = pbgl_mtx_stack_depth(MTX_TEXTURE0); /* all the same */ break;
     case GL_SCISSOR_BOX:
       params[0] = pbgl.scissor.x;
       params[1] = pbgl.scissor.y;
@@ -149,7 +149,7 @@ GL_API void glGetFloatv(GLenum pname, GLfloat *params) {
       memcpy(params, pbgl.mtx[MTX_PROJECTION].mtx.v, sizeof(GLfloat) * 16);
       break;
     case GL_TEXTURE_MATRIX:
-      memcpy(params, pbgl.mtx[MTX_TEXTURE].mtx.v, sizeof(GLfloat) * 16);
+      memcpy(params, pbgl.mtx[MTX_TEXTURE0 + pbgl.active_tex_sv].mtx.v, sizeof(GLfloat) * 16);
       break;
     default:
       // by spec we should bother to convert other params to floats, but who fucking cares?

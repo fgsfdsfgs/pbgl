@@ -8,6 +8,7 @@
 #include "types.h"
 #include "error.h"
 #include "state.h"
+#include "texture.h"
 #include "matrix.h"
 
 /* NOTE: matrices are stored in column major order, like in GL */
@@ -18,16 +19,19 @@
 
 static mat4f mtx_stack_mv[MTX_STACK_SIZE_MV];
 static mat4f mtx_stack_p[MTX_STACK_SIZE_P];
-static mat4f mtx_stack_t[MTX_STACK_SIZE_T];
+static mat4f mtx_stack_t[TEXUNIT_COUNT][MTX_STACK_SIZE_T];
 
 static struct mat4f_stack {
   mat4f *data;
   const int max;
   int ptr;
 } mtx_stack[MTX_COUNT] = {
-  { mtx_stack_mv, MTX_STACK_SIZE_MV },
-  { mtx_stack_p,  MTX_STACK_SIZE_P  },
-  { mtx_stack_t,  MTX_STACK_SIZE_T  },
+  { mtx_stack_mv,   MTX_STACK_SIZE_MV },
+  { mtx_stack_p,    MTX_STACK_SIZE_P  },
+  { mtx_stack_t[0], MTX_STACK_SIZE_T  },
+  { mtx_stack_t[1], MTX_STACK_SIZE_T  },
+  { mtx_stack_t[2], MTX_STACK_SIZE_T  },
+  { mtx_stack_t[3], MTX_STACK_SIZE_T  },
 };
 
 /* pbgl internals */
@@ -36,6 +40,7 @@ void pbgl_mtx_reset(GLenum stack) {
   mtx_stack[stack].ptr = 0;
   pbgl.mtx[stack].mtx = mat4_identity;
   pbgl.mtx[stack].identity = GL_TRUE;
+  pbgl.mtx[stack].dirty = GL_TRUE;
 }
 
 mat4f *pbgl_mtx_peek(GLenum stack) {
@@ -48,13 +53,25 @@ GLint pbgl_mtx_stack_depth(GLenum stack) {
   return mtx_stack[stack].ptr;
 }
 
+GLenum pbgl_mtx_get_gl_index(const GLenum idx) {
+  const GLenum map[MTX_COUNT] = {
+    GL_MODELVIEW,
+    GL_PROJECTION,
+    GL_TEXTURE,
+    GL_TEXTURE,
+    GL_TEXTURE,
+    GL_TEXTURE
+  };
+  return map[idx];
+}
+
 /* GL FUNCTIONS BEGIN */
 
 GL_API void glMatrixMode(GLenum mode) {
   switch (mode) {
     case GL_MODELVIEW:  pbgl.mtx_current = MTX_MODELVIEW; break;
     case GL_PROJECTION: pbgl.mtx_current = MTX_PROJECTION; break;
-    case GL_TEXTURE:    pbgl.mtx_current = MTX_TEXTURE; break;
+    case GL_TEXTURE:    pbgl.mtx_current = MTX_TEXTURE0 + pbgl.active_tex_sv; break;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
