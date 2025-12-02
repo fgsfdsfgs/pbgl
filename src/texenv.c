@@ -247,8 +247,8 @@ static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLu
       p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
-      // this is "undefined" for the rest of the formats
-      break;
+      // this is "undefined" for the rest of the formats, so fall back to MODULATE
+      return texenv_push_modulate(p, texid, stage, rc_prev);
   }
   return p;
 }
