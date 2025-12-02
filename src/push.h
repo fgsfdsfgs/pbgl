@@ -19,8 +19,6 @@
 #define NV097_SET_LIGHT_CONTROL_SOUT_ZERO_OUT        0
 #define NV097_SET_LIGHT_CONTROL_SOUT_PASSTHROUGH     1
 
-#define NV097_SET_CONTROL0_TEXTUREPERSPECTIVE 0x100000
-
 static inline uint32_t *push_command(uint32_t *p, uint32_t command, unsigned int parameter_count) {
   pb_push(p++, command, parameter_count);
   return p;

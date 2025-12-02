@@ -16,6 +16,10 @@
 #include "misc.h"
 #include "pbgl.h"
 
+// always keep perspective correct texturing and stencil writes enabled
+// glStencilMask uses NV097_SET_STENCIL_MASK instead
+#define PBGL_CTRL0 (NV097_SET_CONTROL0_TEXTURE_PERSPECTIVE_ENABLE | NV097_SET_CONTROL0_STENCIL_WRITE_ENABLE)
+
 static GLboolean pbkit_initialized = GL_FALSE;
 static GLboolean pbkit_do_deinit = GL_FALSE;
 
@@ -23,8 +27,11 @@ static GLboolean pbkit_do_deinit = GL_FALSE;
 static inline void pbgl_target_back_buffer(void) {
   while (pb_finished());
   // override Z-buffer mode set by pbkit's set_draw_buffer() for no apparent reason
+  // it also re-enables depth and stencil tests, so override those too
   uint32_t *p = pb_begin();
-  p = pb_push1(p, NV20_TCL_PRIMITIVE_3D_W_YUV_FPZ_FLAGS, 0x00100001);
+  p = push_command_parameter(p, NV097_SET_CONTROL0, PBGL_CTRL0);
+  p = push_command_boolean(p, NV097_SET_STENCIL_TEST_ENABLE, pbgl.flags.stencil_test);
+  p = push_command_boolean(p, NV097_SET_DEPTH_TEST_ENABLE, pbgl.flags.depth_test);
   pb_end(p);
 }
 
@@ -66,7 +73,7 @@ int pbgl_init(int init_pbkit) {
   p = push_command_boolean(p, NV097_SET_ZMIN_MAX_CONTROL, 1);
   p = push_command_boolean(p, NV097_SET_COMPRESS_ZBUFFER_EN, 1);
   p = push_command_boolean(p, NV097_SET_WINDOW_CLIP_TYPE, 0);
-  p = push_command_parameter(p, NV097_SET_CONTROL0, NV097_SET_CONTROL0_TEXTUREPERSPECTIVE);
+  p = push_command_parameter(p, NV097_SET_CONTROL0, PBGL_CTRL0);
   p = push_command_parameter(p, NV097_SET_SKIN_MODE, NV097_SET_SKIN_MODE_OFF);
   p = push_command_parameter(p, NV097_SET_SHADER_OTHER_STAGE_INPUT,
         PBGL_MASK(NV097_SET_SHADER_OTHER_STAGE_INPUT_STAGE1, 0)
