@@ -49,11 +49,11 @@
   !texenv_arg_mapping(texenv, GL_TRUE, (i))
 #define OP_COMBINE_A(i) \
   texenv_arg_src_gl_to_rc(texenv, texid, GL_FALSE, (i)), \
-  texenv_arg_is_alpha(texenv, GL_FALSE, (i)), \
+  !texenv_arg_is_alpha(texenv, GL_FALSE, (i)), \
   texenv_arg_mapping(texenv, GL_FALSE, (i))
 #define OP_COMBINE_A_INV(i) \
   texenv_arg_src_gl_to_rc(texenv, texid, GL_FALSE, (i)), \
-  texenv_arg_is_alpha(texenv, GL_FALSE, (i)), \
+  !texenv_arg_is_alpha(texenv, GL_FALSE, (i)), \
   !texenv_arg_mapping(texenv, GL_FALSE, (i))
 
 #define TEXENV_DIRTY_IF_CHANGED(field, value) \
@@ -111,8 +111,9 @@ static inline GLuint *texenv_push_dst_a(GLuint *p, const GLuint stage, const GLb
 }
 
 static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
-  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
-  const GLuint shift_a = pbgl.texenv[texid].shift_a;
+  // scale only affects GL_COMBINE
+  const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
+  const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
@@ -148,8 +149,9 @@ static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const G
 }
 
 static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
-  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
-  const GLuint shift_a = pbgl.texenv[texid].shift_a;
+  // scale only affects GL_COMBINE
+  const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
+  const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
@@ -185,8 +187,9 @@ static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const 
 }
 
 static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
-  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
-  const GLuint shift_a = pbgl.texenv[texid].shift_a;
+  // scale only affects GL_COMBINE
+  const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
+  const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
@@ -222,8 +225,9 @@ static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuin
 }
 
 static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
-  const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
-  const GLuint shift_a = pbgl.texenv[texid].shift_a;
+  // scale only affects GL_COMBINE
+  const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
+  const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
   switch (tex->gl.baseformat) {
     case GL_RGB:
