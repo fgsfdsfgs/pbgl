@@ -54,6 +54,7 @@ int pbgl_init(int init_pbkit) {
   p = push_command_parameter(p, NV097_SET_TRANSFORM_EXECUTION_MODE,
     PBGL_MASK(NV097_SET_TRANSFORM_EXECUTION_MODE_MODE, NV097_SET_TRANSFORM_EXECUTION_MODE_MODE_FIXED) |
     PBGL_MASK(NV097_SET_TRANSFORM_EXECUTION_MODE_RANGE_MODE, NV097_SET_TRANSFORM_EXECUTION_MODE_RANGE_MODE_PRIV));
+  p = push_command_parameter(p, NV097_SET_TRANSFORM_PROGRAM_START, 0);
 
   // set default clear parameters that never change (for now)
   p = push_command_parameter(p, NV097_SET_CLEAR_RECT_VERTICAL, (pb_back_buffer_height() << 16));
