@@ -72,3 +72,5 @@ See the [samples](https://github.com/fgsfdsfgs/pbgl-samples) repository for more
 * xemu authors and abaire for figuring out how the GPU works
 * dracc for XGU
 * JayFoxRox for xgu-gl
+* Ryzee120 for figuring out the Z bug
+* XboxDev Discord server for help
