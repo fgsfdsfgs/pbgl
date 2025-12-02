@@ -17,11 +17,11 @@ Extension list:
 Known limitations:
 * pbGL assumes that the color buffer is RGBA8888 and the depth buffer is D24S8;
 * `glVertexPointer` etc do not make copies of the vertex data;
-* NPOT textures are not supported and will likely explode;
 * `GL_TEXTURE_1D`, `GL_TEXTURE_3D`, `GL_TEXTURE_CUBE_MAP` are not supported yet;
 * `glTexImage2D` etc only convert RGB888 <-> RGBA8888, otherwise you have to use the same format;
 * GL lighting and material system is not fully implemented;
 * maximum theoretical texture size is 4096x4096;
+* NPOT textures are not supported and will likely explode;
 * supported texture formats:
   * `RGB888`, `RGBA8888`
   * `ALPHA8`, `LUMINANCE8`, `LUMINANCE8_ALPHA8` (untested, no format conversion)
@@ -69,5 +69,6 @@ See the [samples](https://github.com/fgsfdsfgs/pbgl-samples) repository for more
 # Credits
 * NXDK authors and contributors for NXDK and the libraries included in it
 * mborgerson for xsm64, which taught me a lot about PBKit
+* xemu authors and abaire for figuring out how the GPU works
 * dracc for XGU
 * JayFoxRox for xgu-gl
