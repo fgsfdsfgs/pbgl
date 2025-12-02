@@ -14,7 +14,7 @@
 #include "swizzle.h"
 #include "texture.h"
 
-#define TEX_ALLOC_STEP 256
+#define TEX_ALLOC_STEP 512
 
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_WRAP          1
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_MIRROR        2
