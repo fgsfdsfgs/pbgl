@@ -35,6 +35,7 @@ static struct mat4f_stack {
 void pbgl_mtx_reset(GLenum stack) {
   mtx_stack[stack].ptr = 0;
   pbgl.mtx[stack].mtx = mat4_identity;
+  pbgl.mtx[stack].identity = GL_TRUE;
 }
 
 mat4f *pbgl_mtx_peek(GLenum stack) {

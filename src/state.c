@@ -204,7 +204,7 @@ static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
         PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MIN_LOD_CLAMP, 0) |
         PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MAX_LOD_CLAMP, tu->tex->mipmax - 1));
       p = push_command_parameter(p, NV097_SET_TEXTURE_FILTER + tidx, tu->tex->nv.filter);
-      p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, GL_TRUE);
+      p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, !pbgl.mtx[MTX_TEXTURE].identity);
     } else {
       p = push_command_parameter(p, NV097_SET_TEXTURE_CONTROL0 + tidx, NV_TEX_DISABLE);
       p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, GL_FALSE);
@@ -395,8 +395,7 @@ GLboolean pbgl_state_flush(void) {
       // FIXME: each texunit should have its own
       p = pb_begin();
       for (GLuint i = 0, ofs = 0; i < TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4)
-        if (pbgl.tex[i].enabled)
-          p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, pbgl.mtx[MTX_TEXTURE].mtx.v);
+        p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, pbgl.mtx[MTX_TEXTURE].mtx.v);
       pb_end(p);
       pbgl.mtx[MTX_TEXTURE].dirty = GL_FALSE;
     }
