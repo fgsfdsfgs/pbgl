@@ -4,15 +4,28 @@ pbGL is a partial implementation of OpenGL 1.x for the Xbox using NXDK and PBKit
 
 # Status
 
-Currently a subset of GL1.1 with some extensions from later versions is implemented.
+Currently a subset of GL1.2 with some extensions from later versions is implemented.
 
 To see what exactly is or isn't implemented, look at [the GL headers](include/GL/gl.h).
 
 Extension list:
-* `GL_ARB_multitexture`
+* `GL_ARB_multitexture` (4 texture units available)
 * `GL_ARB_texture_env_combine`
+* `GL_ARB_texture_env_add`
+* `GL_PBGL_texture_generate_mipmap` (provides `glGenerateMipmap` and `GL_GENERATE_MIPMAP`)
 
-Do note that NPOT textures are not supported and will probably explode.
+Known limitations:
+* pbGL assumes that the color buffer is RGBA8888 and the depth buffer is D24S8;
+* `glVertexPointer` etc do not make copies of the vertex data;
+* NPOT textures are not supported and will likely explode;
+* `GL_TEXTURE_1D`, `GL_TEXTURE_3D`, `GL_TEXTURE_CUBE_MAP` are not supported yet;
+* `glTexImage2D` etc only convert RGB888 <-> RGBA8888, otherwise you have to use the same format;
+* GL lighting and material system is not fully implemented;
+* maximum theoretical texture size is 4096x4096;
+* supported texture formats:
+  * `RGB888`, `RGBA8888`
+  * `ALPHA8`, `LUMINANCE8`, `LUMINANCE8_ALPHA8` (untested, no format conversion)
+  * `RGBA4444`, `RGB555`, `RGBA5551` (untested, no format conversion)
 
 # Usage
 
