@@ -27,11 +27,8 @@ static GLboolean pbkit_do_deinit = GL_FALSE;
 static inline void pbgl_target_back_buffer(void) {
   while (pb_finished());
   // override Z-buffer mode set by pbkit's set_draw_buffer() for no apparent reason
-  // it also re-enables depth and stencil tests, so override those too
   uint32_t *p = pb_begin();
   p = push_command_parameter(p, NV097_SET_CONTROL0, PBGL_CTRL0);
-  p = push_command_boolean(p, NV097_SET_STENCIL_TEST_ENABLE, pbgl.flags.stencil_test);
-  p = push_command_boolean(p, NV097_SET_DEPTH_TEST_ENABLE, pbgl.flags.depth_test);
   pb_end(p);
 }
 
@@ -151,7 +148,15 @@ int pbgl_init(int init_pbkit) {
 
   // prepare for drawing the first frame
   pbgl_target_back_buffer();
+  // the first time pb_target_back_buffer() is called, it will reenable depth and stencil tests
+  // put them back
+  p = pb_begin();
+  p = push_command_boolean(p, NV097_SET_STENCIL_TEST_ENABLE, pbgl.flags.stencil_test);
+  p = push_command_boolean(p, NV097_SET_DEPTH_TEST_ENABLE, pbgl.flags.depth_test);
+  pb_end(p);
+  // wait until everything is done again
   while (pb_busy());
+
   pb_reset();
 
   // restore vars
