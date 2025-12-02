@@ -394,7 +394,7 @@ GLboolean pbgl_state_flush(void) {
     // push texture matrices
     for (GLuint i = MTX_TEXTURE0, ofs = 0; i < MTX_TEXTURE0 + TEXUNIT_COUNT; ++i, ofs += 4 * 4 * 4) {
       if (pbgl.mtx[i].dirty) {
-        //p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, pbgl.mtx[i].mtx.v);
+        p = push_command_matrix4x4(p, NV097_SET_TEXTURE_MATRIX + ofs, pbgl.mtx[i].mtx.v);
         pbgl.mtx[i].dirty = GL_FALSE;
       }
     }
