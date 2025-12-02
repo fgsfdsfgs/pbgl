@@ -84,7 +84,7 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
     case GL_CLIENT_ACTIVE_TEXTURE:      *params = pbgl.active_tex_cl + GL_TEXTURE0; break;
     case GL_CULL_FACE_MODE:             *params = pbgl.cullface.cullface; break;
     case GL_DEPTH_BITS:                 *params = 24; break; // TODO: read from current video mode?
-    case GL_DEPTH_FUNC:                 *params = pbgl.depth.func + 0x200; break;
+    case GL_DEPTH_FUNC:                 *params = pbgl.depth.func; break;
     case GL_FRONT_FACE:                 *params = pbgl.cullface.frontface; break;
     case GL_GREEN_BITS:                 *params = 8; break; // TODO: read from current video mode?
     case GL_MATRIX_MODE:                *params = pbgl_mtx_get_gl_index(pbgl.mtx_current); break;
@@ -99,7 +99,7 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
     case GL_RED_BITS:                   *params = 8; break; // TODO: read from current video mode?
     case GL_SHADE_MODEL:                *params = GL_SMOOTH; break; // TODO
     case GL_STENCIL_BITS:               *params = 8; break; // TODO: read from current video mode?
-    case GL_STENCIL_FUNC:               *params = pbgl.stencil.func + 0x200; break;
+    case GL_STENCIL_FUNC:               *params = pbgl.stencil.func; break;
     case GL_TEXTURE_STACK_DEPTH:        *params = pbgl_mtx_stack_depth(MTX_TEXTURE0); /* all the same */ break;
     case GL_SCISSOR_BOX:
       params[0] = pbgl.scissor.x;

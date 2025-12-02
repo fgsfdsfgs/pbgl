@@ -47,11 +47,11 @@ void pbgl_state_init(void) {
   pbgl.blend.color = 0x00000000;
   pbgl.blend.dirty = GL_TRUE;
 
-  pbgl.depth.func = GL_LESS & 0xF;
+  pbgl.depth.func = GL_LESS;
   pbgl.depth.writemask = GL_TRUE;
   pbgl.depth.dirty = GL_TRUE;
 
-  pbgl.stencil.func = GL_ALWAYS & 0xF;
+  pbgl.stencil.func = GL_ALWAYS;
   pbgl.stencil.op_sfail = GL_KEEP; // and for stencil ops
   pbgl.stencil.op_zfail = GL_KEEP;
   pbgl.stencil.op_zpass = GL_KEEP;
@@ -665,7 +665,7 @@ GL_API void glCullFace(GLenum face) {
 GL_API void glDepthFunc(GLenum func) {
   if (pbgl.depth.func != func)
     pbgl.state_dirty = pbgl.depth.dirty = GL_TRUE;
-  pbgl.depth.func = func & 0xF;
+  pbgl.depth.func = func;
 }
 
 GL_API void glDepthMask(GLboolean write) {
@@ -779,7 +779,7 @@ GL_API void glShadeModel(GLenum model) {
 GL_API void glStencilFunc(GLenum func, GLint ref, GLuint mask) {
   if (pbgl.stencil.func != func || pbgl.stencil.ref != ref || pbgl.stencil.funcmask != mask)
     pbgl.state_dirty = pbgl.stencil.dirty = GL_TRUE;
-  pbgl.stencil.func = func & 0xF;
+  pbgl.stencil.func = func;
   pbgl.stencil.ref = ref;
   pbgl.stencil.funcmask = mask;
 }
