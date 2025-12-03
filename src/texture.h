@@ -56,6 +56,7 @@ typedef struct {
   GLuint bytespp; // bytes per pixel
 
   GLboolean mipmap;
+  GLboolean mipmap_expected;
   GLuint mipmax;
   GLuint mipcount;
   mipmap_t mips[TEX_MAX_MIPS];

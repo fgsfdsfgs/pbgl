@@ -852,6 +852,7 @@ typedef void (*PFNGLGETBUFFERPOINTERVARBPROC) (GLenum target, GLenum pname, void
 
 #ifndef GL_PBGL_texture_generate_mipmap
 #define GL_PBGL_texture_generate_mipmap 1
+#define GL_EXPECT_MIPMAPS_PBGL 0x9701
 typedef void (*PFNGLGENERATEMIPMAPPROC) (GLenum target);
 #ifdef GL_GLEXT_PROTOTYPES
 GL_API void glGenerateMipmap (GLenum target);

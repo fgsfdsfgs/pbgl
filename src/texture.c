@@ -411,12 +411,12 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
   free(tmp);
 }
 
-static inline void tex_init(texture_t *tex, GLuint dim, GLuint w, GLuint h, GLuint d) {
+static inline void tex_init(texture_t *tex, GLuint dim, GLuint w, GLuint h, GLuint d, GLuint bytespp) {
   tex->dimensions = dim;
   tex->width = w;
   tex->height = h;
   tex->depth = d;
-  tex->bytespp = intfmt_bytespp(tex->gl.format);
+  tex->bytespp = bytespp;
   tex->pitch = tex->bytespp * tex->width;
   tex->zpitch = tex->pitch * tex->height;
   tex->mipcount = 0;
@@ -519,7 +519,7 @@ GLboolean pbgl_tex_init(void) {
   textures[0].gl.wrap_r = GL_REPEAT;
   textures[0].gl.border = GL_TRUE; // TODO
 
-  tex_init(&textures[0], 2, 4, 4, 1);
+  tex_init(&textures[0], 2, 4, 4, 1, 4);
   if (!tex_alloc(&textures[0])) {
     free(textures);
     pbgl_set_error(GL_OUT_OF_MEMORY);
@@ -722,12 +722,12 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
   if (!tex->allocated) {
     // texture is not yet allocated or has just been deallocated
     // initalize texture (2 dimensions, 1 depth level)
-    tex_init(tex, 2, width << level, height << level, 1);
+    tex_init(tex, 2, width << level, height << level, 1, intfmt_bytespp(intfmt));
     // predict whether mipmaps are gonna be used
     if (target == GL_TEXTURE_2D) {
       tex->mipmap =
         (tex->gl.min_filter >= GL_NEAREST_MIPMAP_NEAREST) ||
-        tex->gl.gen_mipmap;
+        tex->gl.gen_mipmap || tex->mipmap_expected;
     }
     tex->mipcount = level + 1;
     // set GL formats
@@ -833,6 +833,7 @@ GL_API void glTexParameteri(GLenum target, GLenum pname, GLint param) {
     case GL_TEXTURE_WRAP_R:             tex->gl.wrap_r = param; break;
     case GL_GENERATE_MIPMAP:            tex->gl.gen_mipmap = param; break;
     case GL_TEXTURE_MAX_ANISOTROPY_EXT: break; // TODO
+    case GL_EXPECT_MIPMAPS_PBGL:        tex->mipmap_expected = !!param; break;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
@@ -855,12 +856,13 @@ GL_API void glGetTexParameteriv(GLenum target, GLenum pname, GLint *out) {
   }
 
   switch (pname) {
-    case GL_TEXTURE_MIN_FILTER: *out = tex->gl.min_filter; break;
-    case GL_TEXTURE_MAG_FILTER: *out = tex->gl.mag_filter; break;
-    case GL_TEXTURE_WRAP_S:     *out = tex->gl.wrap_s; break;
-    case GL_TEXTURE_WRAP_T:     *out = tex->gl.wrap_t; break;
-    case GL_TEXTURE_WRAP_R:     *out = tex->gl.wrap_r; break;
-    case GL_GENERATE_MIPMAP:    *out = tex->gl.gen_mipmap; break;
+    case GL_TEXTURE_MIN_FILTER:  *out = tex->gl.min_filter; break;
+    case GL_TEXTURE_MAG_FILTER:  *out = tex->gl.mag_filter; break;
+    case GL_TEXTURE_WRAP_S:      *out = tex->gl.wrap_s; break;
+    case GL_TEXTURE_WRAP_T:      *out = tex->gl.wrap_t; break;
+    case GL_TEXTURE_WRAP_R:      *out = tex->gl.wrap_r; break;
+    case GL_GENERATE_MIPMAP:     *out = tex->gl.gen_mipmap; break;
+    case GL_EXPECT_MIPMAPS_PBGL: *out = tex->mipmap_expected; break;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
