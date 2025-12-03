@@ -13,6 +13,7 @@ Extension list:
 * `GL_ARB_texture_env_combine`
 * `GL_ARB_texture_env_add`
 * `GL_PBGL_texture_generate_mipmap` (provides `glGenerateMipmap` and `GL_GENERATE_MIPMAP`)
+* `GL_PBGL_stats` (provides `GL_TEXTURE_MEMORY_USAGE_PBGL` and `GL_TEXTURE_COUNT_PBGL`)
 
 Known limitations:
 * pbGL assumes that the color buffer is RGBA8888 and the depth buffer is D24S8;

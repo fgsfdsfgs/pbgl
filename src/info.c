@@ -113,6 +113,13 @@ GL_API void glGetIntegerv(GLenum pname, GLint *params) {
       params[2] = pbgl.varray[VARR_COLOR1].value.b * 255.f;
       params[3] = pbgl.varray[VARR_COLOR1].value.a * 255.f;
       break;
+    case GL_TEXTURE_MEMORY_USAGE_PBGL:
+      params[0] = pbgl_tex_get_used_memory();
+      break;
+    case GL_TEXTURE_COUNT_PBGL:
+      params[0] = pbgl_tex_get_num();
+      params[1] = pbgl_tex_get_cap();
+      break;
     default:
       // HACK: this should work cause it will set the first byte
       glGetBooleanv(pname, (GLboolean *)params);

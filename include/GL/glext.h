@@ -858,6 +858,12 @@ GL_API void glGenerateMipmap (GLenum target);
 #endif
 #endif /* GL_PBGL_texture_generate_mipmap */
 
+#ifndef GL_PBGL_stats
+#define GL_PBGL_stats 1
+#define GL_TEXTURE_MEMORY_USAGE_PBGL 0x9801
+#define GL_TEXTURE_COUNT_PBGL 0x9802
+#endif /* GL_PBGL_stats */
+
 #ifdef __cplusplus
 }
 #endif

@@ -66,4 +66,8 @@ typedef struct {
 GLboolean pbgl_tex_init(void);
 void pbgl_tex_free(void);
 
+GLuint pbgl_tex_get_cap(void);
+GLuint pbgl_tex_get_num(void);
+GLuint pbgl_tex_get_used_memory(void);
+
 #endif // _PBGL_TEXTURE_H

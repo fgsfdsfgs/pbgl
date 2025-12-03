@@ -14,7 +14,7 @@
 #include "swizzle.h"
 #include "texture.h"
 
-#define TEX_ALLOC_STEP 512
+#define TEX_ALLOC_STEP 256
 
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_WRAP          1
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_MIRROR        2
@@ -539,6 +539,24 @@ void pbgl_tex_free(void) {
   }
   free(textures);
   textures = NULL;
+}
+
+GLuint pbgl_tex_get_cap(void) {
+  return tex_cap;
+}
+
+GLuint pbgl_tex_get_num(void) {
+  return tex_count;
+}
+
+GLuint pbgl_tex_get_used_memory(void) {
+  GLuint size = 0;
+  for (GLuint i = 0; i < tex_count; ++i) {
+    const texture_t *tex = textures + i;
+    if (tex->used && tex->allocated)
+      size += tex->size;
+  }
+  return size;
 }
 
 /* GL FUNCTIONS BEGIN */
