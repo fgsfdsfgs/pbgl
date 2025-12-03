@@ -110,7 +110,7 @@ static inline GLuint *texenv_push_dst_a(GLuint *p, const GLuint stage, const GLb
     | PBGL_MASK(NV097_SET_COMBINER_ALPHA_OCW_OP, op));
 }
 
-static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const GLuint rc_prev) {
   // scale only affects GL_COMBINE
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
@@ -118,29 +118,29 @@ static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const G
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = As
-      p = texenv_push_src_a(p, stage, OP_AS, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AS, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGB:
     case GL_LUMINANCE:
       // Cv = Cs
-      p = texenv_push_src_rgb(p, stage, OP_CS, OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CS, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
     case GL_LUMINANCE_ALPHA:
       // Cv = Cs
-      p = texenv_push_src_rgb(p, stage, OP_CS, OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CS, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = As
-      p = texenv_push_src_a(p, stage, OP_AS, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AS, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       break;
@@ -148,7 +148,7 @@ static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const G
   return p;
 }
 
-static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const GLuint rc_prev) {
   // scale only affects GL_COMBINE
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
@@ -156,29 +156,29 @@ static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const 
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGB:
     case GL_LUMINANCE:
       // Cv = Cp * Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_CS, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_CS, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
     case GL_LUMINANCE_ALPHA:
       // Cv = Cp * Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_CS, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_CS, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       break;
@@ -186,7 +186,7 @@ static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const 
   return p;
 }
 
-static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuint rc_prev) {
   // scale only affects GL_COMBINE
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
@@ -194,29 +194,29 @@ static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuin
   switch (tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGB:
     case GL_LUMINANCE:
       // Cv = Cp + Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_CS, OP_C1);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_CS, OP_C1);
+      p = texenv_push_dst_rgb(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
     case GL_LUMINANCE_ALPHA:
       // Cv = Cp + Cs
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_C1, OP_CS, OP_C1);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_CS, OP_C1);
+      p = texenv_push_dst_rgb(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       // Av = Ap * As
-      p = texenv_push_src_a(p, stage, OP_AP, OP_AS, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_AS, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       break;
@@ -224,7 +224,7 @@ static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuin
   return p;
 }
 
-static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLuint rc_prev) {
   // scale only affects GL_COMBINE
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
@@ -232,23 +232,23 @@ static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLu
   switch (tex->gl.baseformat) {
     case GL_RGB:
       // Cv = Cs
-      p = texenv_push_src_rgb(p, stage, OP_CS, OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CS, OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_RGBA:
       // Cv = Cp * (1 - As) + Cs * As
-      p = texenv_push_src_rgb(p, stage, OP_CP, OP_AS_INV, OP_CS, OP_AS);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_CP, OP_AS_INV, OP_CS, OP_AS);
+      p = texenv_push_dst_rgb(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       // Av = Ap
-      p = texenv_push_src_a(p, stage, OP_AP, OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_AP, OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     default:
       // this is "undefined" for the rest of the formats, so fall back to MODULATE
-      return texenv_push_modulate(p, texid, stage, rc_prev);
+      return texenv_push_modulate(p, texid, rc_prev);
   }
   return p;
 }
@@ -281,30 +281,30 @@ static inline GLuint texenv_arg_mapping(const texenv_state_t *texenv, const GLbo
   return (operand == GL_ONE_MINUS_SRC_COLOR || operand == GL_ONE_MINUS_SRC_ALPHA) ? MAP_UNSIGNED_INV : MAP_UNSIGNED;
 }
 
-static inline GLuint *texenv_push_combine(GLuint *p, const texenv_state_t *texenv, const GLuint texid, const GLuint stage, const GLuint rc_prev) {
+static inline GLuint *texenv_push_combine(GLuint *p, const texenv_state_t *texenv, const GLuint texid, const GLuint rc_prev) {
   const GLuint shift_rgb = pbgl.texenv[texid].shift_rgb;
   const GLuint shift_a = pbgl.texenv[texid].shift_a;
 
   switch (texenv->combine_rgb) {
     case GL_REPLACE:
       // spare0 = a = Arg0
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_C1, OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_COMBINE_RGB(0), OP_C1, OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       break;
     case GL_MODULATE:
       // spare0 = a * b = Arg0 * Arg1
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_COMBINE_RGB(1), OP_C0, OP_C0);
-      p = texenv_push_dst_rgb(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_COMBINE_RGB(0), OP_COMBINE_RGB(1), OP_C0, OP_C0);
+      p = texenv_push_dst_rgb(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_rgb);
       break;
     case GL_INTERPOLATE:
       // spare0 = a * b + c * d = Arg0 * Arg2 + Arg1 * (1 - Arg2)
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_COMBINE_RGB(2), OP_COMBINE_RGB(1), OP_COMBINE_RGB_INV(2));
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_COMBINE_RGB(0), OP_COMBINE_RGB(2), OP_COMBINE_RGB(1), OP_COMBINE_RGB_INV(2));
+      p = texenv_push_dst_rgb(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       break;
     case GL_ADD:
       // spare0 = a * b + c * d = a * 1 + c * 1 = Arg0 + Arg1
-      p = texenv_push_src_rgb(p, stage, OP_COMBINE_RGB(0), OP_C1, OP_COMBINE_RGB(1), OP_C1);
-      p = texenv_push_dst_rgb(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
+      p = texenv_push_src_rgb(p, texid, OP_COMBINE_RGB(0), OP_C1, OP_COMBINE_RGB(1), OP_C1);
+      p = texenv_push_dst_rgb(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_rgb);
       break;
     default:
       // TODO: GL_ADD_SIGNED, GL_SUBTRACT, GL_DOT3*
@@ -314,23 +314,23 @@ static inline GLuint *texenv_push_combine(GLuint *p, const texenv_state_t *texen
   switch (texenv->combine_a) {
     case GL_REPLACE:
       // spare0 = a = Arg0
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_A1, OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_COMBINE_A(0), OP_A1, OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_MODULATE:
       // spare0 = a * b = Arg0 * Arg1
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_COMBINE_A(1), OP_A0, OP_A0);
-      p = texenv_push_dst_a(p, stage, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_COMBINE_A(0), OP_COMBINE_A(1), OP_A0, OP_A0);
+      p = texenv_push_dst_a(p, texid, GL_TRUE, GL_FALSE, GL_FALSE, shift_a);
       break;
     case GL_INTERPOLATE:
       // spare0 = a * b + c * d = Arg0 * Arg2 + Arg1 * (1 - Arg2)
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_COMBINE_A(2), OP_COMBINE_A(1), OP_COMBINE_A_INV(2));
-      p = texenv_push_dst_a(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_COMBINE_A(0), OP_COMBINE_A(2), OP_COMBINE_A(1), OP_COMBINE_A_INV(2));
+      p = texenv_push_dst_a(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_a);
       break;
     case GL_ADD:
       // spare0 = a * b + c * d = a * 1 + c * 1 = Arg0 + Arg1
-      p = texenv_push_src_a(p, stage, OP_COMBINE_A(0), OP_A1, OP_COMBINE_A(1), OP_A1);
-      p = texenv_push_dst_a(p, stage, GL_FALSE, GL_FALSE, GL_TRUE, shift_a);
+      p = texenv_push_src_a(p, texid, OP_COMBINE_A(0), OP_A1, OP_COMBINE_A(1), OP_A1);
+      p = texenv_push_dst_a(p, texid, GL_FALSE, GL_FALSE, GL_TRUE, shift_a);
       break;
     default:
       // TODO: GL_ADD_SIGNED, GL_SUBTRACT, GL_DOT3*
@@ -370,7 +370,7 @@ static inline GLboolean texenv_combine_mode_valid(const GLenum mode) {
 /* pbgl internals */
 
 GLuint *pbgl_texenv_push(GLuint *p) {
-  GLuint stage = 0;
+  GLuint num_stages = 0;
   GLuint rc_prev = RC_PRIMARY_COLOR;
   GLuint shadermask[TEXUNIT_COUNT] = { 0 };
 
@@ -390,51 +390,50 @@ GLuint *pbgl_texenv_push(GLuint *p) {
     if (tex_enabled && pbgl.tex[i].enabled && pbgl.tex[i].tex) {
       switch (texenv->mode) {
         case GL_REPLACE:
-          p = texenv_push_replace(p, i, stage, rc_prev);
+          p = texenv_push_replace(p, i, rc_prev);
           break;
         case GL_MODULATE:
-          p = texenv_push_modulate(p, i, stage, rc_prev);
+          p = texenv_push_modulate(p, i, rc_prev);
           break;
         case GL_DECAL:
-          p = texenv_push_decal(p, i, stage, rc_prev);
+          p = texenv_push_decal(p, i, rc_prev);
           break;
         case GL_ADD:
-          p = texenv_push_add(p, i, stage, rc_prev);
+          p = texenv_push_add(p, i, rc_prev);
           break;
         case GL_COMBINE:
-          p = texenv_push_combine(p, texenv, i, stage, rc_prev);
+          p = texenv_push_combine(p, texenv, i, rc_prev);
           break;
         default:
           // TODO: GL_BLEND, GL_INTERPOLATE
           break;
       }
 
-      // enable 2d projective mode for this stage
-      shadermask[stage] = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_2D_PROJECTIVE;
+      // enable 2D projective mode for this stage
+      shadermask[i] = NV097_SET_SHADER_STAGE_PROGRAM_STAGE0_2D_PROJECTIVE;
 
-      // use the output of the previous stage next
+      // remember the last active stage
+      num_stages = i + 1;
+
+      // use the output of the previous active stage next
       rc_prev = RC_SPARE0;
-
-      ++stage;
     }
   }
 
-  // zero out the rest of the stages
-  for (GLuint i = stage; i < TEXUNIT_COUNT; ++i) {
-    p = pb_push1(p, NV097_SET_COMBINER_COLOR_ICW + i * 4, 0);
-    p = pb_push1(p, NV097_SET_COMBINER_COLOR_OCW + i * 4, 0);
-    p = pb_push1(p, NV097_SET_COMBINER_ALPHA_ICW + i * 4, 0);
-    p = pb_push1(p, NV097_SET_COMBINER_ALPHA_OCW + i * 4, 0);
+  // set up passthrough stage for disabled texunits
+  for (GLuint i = 0; i < TEXUNIT_COUNT; ++i) {
+    if (!shadermask[i]) {
+      p = pb_push1(p, NV097_SET_COMBINER_COLOR_ICW + i * 4, 0);
+      p = pb_push1(p, NV097_SET_COMBINER_COLOR_OCW + i * 4, 0);
+      p = pb_push1(p, NV097_SET_COMBINER_ALPHA_ICW + i * 4, 0);
+      p = pb_push1(p, NV097_SET_COMBINER_ALPHA_OCW + i * 4, 0);
+    }
   }
 
-  GLuint reg_out;
-  if (stage == 0) {
+  const GLuint reg_out = rc_prev;
+  if (num_stages == 0) {
     // textures are disabled, use the primary color register for output
-    reg_out = RC_PRIMARY_COLOR;
-    stage++;
-  } else {
-    // output the texenv result in SPARE0 that we just calculated
-    reg_out = RC_SPARE0;
+    num_stages++;
   }
 
   // push shader modes
@@ -449,7 +448,7 @@ GLuint *pbgl_texenv_push(GLuint *p) {
   p = pb_push1(p, NV097_SET_COMBINER_CONTROL,
       PBGL_MASK(NV097_SET_COMBINER_CONTROL_FACTOR0, NV097_SET_COMBINER_CONTROL_FACTOR0_SAME_FACTOR_ALL)
     | PBGL_MASK(NV097_SET_COMBINER_CONTROL_FACTOR1, NV097_SET_COMBINER_CONTROL_FACTOR1_SAME_FACTOR_ALL)
-    | PBGL_MASK(NV097_SET_COMBINER_CONTROL_ITERATION_COUNT, stage));
+    | PBGL_MASK(NV097_SET_COMBINER_CONTROL_ITERATION_COUNT, num_stages));
   p = pb_push1(p, NV097_SET_COMBINER_SPECULAR_FOG_CW0,
       PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_A_INVERSE, 0)
     | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_SOURCE, RC_ZERO) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_ALPHA, 0) | PBGL_MASK(NV097_SET_COMBINER_SPECULAR_FOG_CW0_B_INVERSE, 0)
