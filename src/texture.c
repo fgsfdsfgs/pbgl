@@ -11,6 +11,7 @@
 #include "state.h"
 #include "misc.h"
 #include "pbgl.h"
+#include "memory.h"
 #include "swizzle.h"
 #include "texture.h"
 
@@ -221,35 +222,6 @@ static inline GLuint extfmt_bytespp(const GLenum glformat, const GLuint type, GL
   }
 }
 
-// SDL_memcpySSE from SDL2
-// requires everything to be 16-bytes aligned
-static void memcpy_sse(GLubyte *__restrict dst, const GLubyte *__restrict src, const GLuint len) {
-  __m128 values[4];
-  for (GLuint i = len / 64; i--;) {
-    _mm_prefetch((const char *)src, _MM_HINT_NTA);
-    values[0] = *(__m128 *)(src + 0 );
-    values[1] = *(__m128 *)(src + 16);
-    values[2] = *(__m128 *)(src + 32);
-    values[3] = *(__m128 *)(src + 48);
-    _mm_stream_ps((float *)(dst + 0 ), values[0]);
-    _mm_stream_ps((float *)(dst + 16), values[1]);
-    _mm_stream_ps((float *)(dst + 32), values[2]);
-    _mm_stream_ps((float *)(dst + 48), values[3]);
-    src += 64;
-    dst += 64;
-  }
-  if (len & 63)
-    memcpy(dst, src, len & 63);
-}
-
-static inline void aligned_copy(void *dst, const void *src, const GLuint len) {
-  // if addresses are 16-bytes aligned, copy it using SSE, otherwise use normal memcpy
-  if (((GLuint)dst & 0xF) || ((GLuint)src & 0xF))
-    memcpy(dst, src, len);
-  else
-    memcpy_sse((GLubyte *)dst, (const GLubyte *)src, len);
-}
-
 static inline GLboolean tex_gl_to_nv(texture_t *tex) {
   const GLuint fmt = intfmt_gl_to_nv(tex->gl.format);
 
@@ -453,7 +425,7 @@ static GLboolean tex_alloc(texture_t *tex) {
     tex->mipmax = 1;
   }
 
-  tex->data = MmAllocateContiguousMemoryEx(tex->size, 0, PBGL_MAXRAM, TEX_ALIGN, PAGE_WRITECOMBINE | PAGE_READWRITE);
+  tex->data = pbgl_mem_alloc(tex->size);
   if (!tex->data) {
     pbgl_set_error(GL_OUT_OF_MEMORY);
     return GL_FALSE;
@@ -470,7 +442,7 @@ static GLboolean tex_alloc(texture_t *tex) {
 
 static inline void tex_free(texture_t *tex) {
   if (tex->bound) glFinish(); // wait until texture is not used
-  if (tex->data) MmFreeContiguousMemory(tex->data);
+  if (tex->data) pbgl_mem_free(tex->data);
   memset(tex, 0, sizeof(*tex));
 }
 
@@ -479,10 +451,10 @@ static inline GLboolean tex_realloc(texture_t *tex) {
   void *copy = malloc(tex->size);
   if (!copy) return GL_FALSE;
 
-  aligned_copy(copy, tex->data, tex->size);
+  pbgl_aligned_copy(copy, tex->data, tex->size);
 
   // realloc
-  MmFreeContiguousMemory(tex->data);
+  pbgl_mem_free(tex->data);
   tex->data = NULL;
   if (!tex_alloc(tex)) {
     free(copy);
@@ -490,7 +462,7 @@ static inline GLboolean tex_realloc(texture_t *tex) {
   }
 
   // restore the texture
-  aligned_copy(tex->data, copy, tex->mips[0].size);
+  pbgl_aligned_copy(tex->data, copy, tex->mips[0].size);
 
   free(copy);
 
@@ -535,7 +507,7 @@ GLboolean pbgl_tex_init(void) {
 void pbgl_tex_free(void) {
   for (GLuint i = 0; i < tex_count; ++i) {
     if (textures[i].used && textures[i].data)
-      MmFreeContiguousMemory(textures[i].data);
+      pbgl_mem_free(textures[i].data);
   }
   free(textures);
   textures = NULL;
@@ -712,7 +684,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
       }
     } else if (tex->width != width || tex->height != height || tex->gl.format != intfmt) {
       // user wants to upload new texture, free this one
-      MmFreeContiguousMemory(tex->data);
+      pbgl_mem_free(tex->data);
       tex->data = NULL;
       tex->mipmap = GL_FALSE;
       tex->allocated = GL_FALSE;
@@ -743,7 +715,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     // convert formats and shit
     if (!tex_gl_to_nv(tex)) {
       // unknown format
-      MmFreeContiguousMemory(tex->data);
+      pbgl_mem_free(tex->data);
       tex->data = NULL;
       tex->allocated = GL_FALSE;
       pbgl_set_error(GL_INVALID_ENUM);

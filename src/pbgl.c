@@ -14,6 +14,7 @@
 #include "push.h"
 #include "state.h"
 #include "misc.h"
+#include "memory.h"
 #include "pbgl.h"
 
 // always keep perspective correct texturing and stencil writes enabled
@@ -36,6 +37,10 @@ int pbgl_init(int init_pbkit) {
   if (pbgl.active)
     return -1; // don't double init
 
+  // init memory allocator, if any
+  if (!pbgl_mem_init())
+    return -4;
+
   // remember who has to deinit pbkit later
    pbkit_do_deinit = init_pbkit;
 
@@ -45,8 +50,10 @@ int pbgl_init(int init_pbkit) {
   // init pbkit if needed
   if (!pbkit_initialized) {
     int err;
-    if ((err = pb_init()) != 0)
+    if ((err = pb_init()) != 0) {
+      pbgl_mem_shutdown();
       return -10 - err;
+    }
     pbkit_initialized = GL_TRUE;
   }
 
@@ -127,6 +134,7 @@ int pbgl_init(int init_pbkit) {
   // init texture manager
   if (!pbgl_tex_init()) {
     pb_kill();
+    pbgl_mem_shutdown();
     pbkit_initialized = GL_FALSE;
     return -3;
   }
@@ -191,12 +199,12 @@ void pbgl_swap_buffers(void) {
   pb_reset();
 }
 
-void *pbgl_alloc(unsigned int size, int dynamic) {
-  return MmAllocateContiguousMemoryEx(size, 0, PBGL_MAXRAM, 0, dynamic ? 0x404 : 0x04);
+void *pbgl_alloc(unsigned int size) {
+  return pbgl_mem_alloc(size);
 }
 
 void pbgl_free(void *addr) {
-  if (addr) MmFreeContiguousMemory(addr);
+  pbgl_mem_free(addr);
 }
 
 void pbgl_shutdown(void) {
@@ -215,6 +223,9 @@ void pbgl_shutdown(void) {
 
   // free all textures
   pbgl_tex_free();
+
+  // nuke memory allocator
+  pbgl_mem_shutdown();
 
   pbgl.active = GL_FALSE;
 }
