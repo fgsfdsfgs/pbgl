@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits.h>
 #include <windows.h>
 #include <pbkit/pbkit.h>
 #include <x86intrin.h>
@@ -15,6 +16,12 @@
 #include "swizzle.h"
 #include "texture.h"
 
+#define PAL_DMA_A 0
+#define PAL_DMA_B 1
+
+#define TEX_DMA_A 1
+#define TEX_DMA_B 2
+
 #define TEX_ALLOC_STEP 256
 
 #define NV_PGRAPH_TEXADDRESS0_ADDRU_WRAP          1
@@ -30,6 +37,10 @@
 #define NV_PGRAPH_TEXFILTER0_MIN_BOX_TENT_LOD        5
 #define NV_PGRAPH_TEXFILTER0_MIN_TENT_TENT_LOD       6
 #define NV_PGRAPH_TEXFILTER0_MIN_CONVOLUTION_2D_LOD0 7
+
+#define NV097_SET_TEXTURE_FILTER_CONVOLUTION_KERNEL          0x0000E000
+#define NV097_SET_TEXTURE_FILTER_CONVOLUTION_KERNEL_QUINCUNX 1
+#define NV097_SET_TEXTURE_FILTER_CONVOLUTION_KERNEL_GAUSSIAN 2
 
 static texture_t *textures = NULL;
 static GLuint tex_count = 0;
@@ -117,6 +128,9 @@ static inline GLuint intfmt_gl_to_nv(const GLenum glformat) {
     case GL_RGB5_A1:           return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_A1R5G5B5;
     case GL_RGB5:              return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_X1R5G5B5;
 
+    case GL_COLOR_INDEX:
+    case GL_COLOR_INDEX8_EXT:  return NV097_SET_TEXTURE_FORMAT_COLOR_SZ_I8_A8R8G8B8;
+
     default:                   return 0;
   }
 }
@@ -128,6 +142,8 @@ static inline GLuint intfmt_bytespp(const GLenum glformat) {
     case GL_ALPHA8:
     case GL_LUMINANCE:
     case GL_LUMINANCE8:
+    case GL_COLOR_INDEX:
+    case GL_COLOR_INDEX8_EXT:
       return 1;
 
     case 2: // legacy alias for GL_LUMINANCE_ALPHA
@@ -182,6 +198,9 @@ static inline GLenum intfmt_basefmt(const GLenum glformat) {
     case GL_RGB5_A1:
       return GL_RGBA;
 
+    case GL_COLOR_INDEX8_EXT:
+      return GL_COLOR_INDEX;
+
     default: // unknown format
       return 0;
   }
@@ -189,12 +208,12 @@ static inline GLenum intfmt_basefmt(const GLenum glformat) {
 
 static inline GLuint extfmt_bytespp(const GLenum glformat, const GLuint type, GLboolean *reverse) {
   switch (glformat) {
-    // case GL_COLOR_INDEX:
     case GL_RED:
     case GL_GREEN:
     case GL_BLUE:
     case GL_ALPHA:
     case GL_LUMINANCE:
+    case GL_COLOR_INDEX:
       return (type == GL_UNSIGNED_BYTE) ? 1 : 0;
 
     case GL_LUMINANCE_ALPHA:
@@ -249,11 +268,28 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
   tex->nv.filter =
     PBGL_MASK(NV097_SET_TEXTURE_FILTER_MIN, filter_min) |
     PBGL_MASK(NV097_SET_TEXTURE_FILTER_MAG, filter_mag) |
-    0x00004000; // this is either LOD bias or the convolution filter, dunno
+    PBGL_MASK(NV097_SET_TEXTURE_FILTER_CONVOLUTION_KERNEL, NV097_SET_TEXTURE_FILTER_CONVOLUTION_KERNEL_QUINCUNX) |
+    PBGL_MASK(NV097_SET_TEXTURE_FILTER_MIPMAP_LOD_BIAS, 0); // TODO
 
   const GLuint size_u = ulog2(tex->width);
   const GLuint size_v = ulog2(tex->height);
   const GLuint size_p = ulog2(tex->depth);
+
+  if (tex->palette.data) {
+    GLuint palsize;
+    switch (tex->palette.width) {
+      case 32:  palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_32; break;
+      case 64:  palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_64; break;
+      case 128: palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_128; break;
+      default:  palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_256; break;
+    }
+    tex->nv.palette =
+      PBGL_MASK(NV097_SET_TEXTURE_PALETTE_CONTEXT_DMA, PAL_DMA_B) |
+      PBGL_MASK(NV097_SET_TEXTURE_PALETTE_LENGTH, palsize) |
+      ((GLuint)tex->palette.data & 0x03FFFFC0);
+  } else {
+    tex->nv.palette = 0;
+  }
 
   tex->nv.format =
     PBGL_MASK(NV097_SET_TEXTURE_FORMAT_COLOR, fmt) |
@@ -263,25 +299,63 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
     PBGL_MASK(NV097_SET_TEXTURE_FORMAT_BASE_SIZE_U, size_u) |
     PBGL_MASK(NV097_SET_TEXTURE_FORMAT_BASE_SIZE_V, size_v) |
     PBGL_MASK(NV097_SET_TEXTURE_FORMAT_BASE_SIZE_P, size_p) |
-    0xA; /* dma context and other shit here, presumably */
+    PBGL_MASK(NV097_SET_TEXTURE_FORMAT_CONTEXT_DMA, TEX_DMA_B) |
+    PBGL_MASK(NV097_SET_TEXTURE_FORMAT_BORDER_SOURCE, NV097_SET_TEXTURE_FORMAT_BORDER_SOURCE_COLOR);
 
   tex->nv.addr = (GLuint)tex->data & 0x03FFFFFF;
 
   return GL_TRUE;
 }
 
-static inline void tex_mip_width(GLubyte *out, GLuint out_size, const GLubyte *in, GLuint bytespp) {
+static inline void tex_mip_width32(GLubyte *out, GLuint out_size, const GLubyte *in, GLuint bytespp) {
   for (GLuint i = 0; i < out_size; i += bytespp, out += bytespp, in += bytespp * 2) {
     for (GLuint b = 0; b < bytespp; ++b)
       out[b] = (in[b] + in[b + bytespp]) >> 1;
   }
 }
 
-static inline void tex_mip_height(GLubyte *out, GLuint out_pitch, GLuint out_h, const GLubyte *in, GLuint bytespp) {
+static inline void tex_mip_height32(GLubyte *out, GLuint out_pitch, GLuint out_h, const GLubyte *in, GLuint bytespp) {
   for (GLuint i = 0; i < out_h; i++, in += out_pitch) {
     for (GLuint j = 0; j < out_pitch; j += bytespp, out += bytespp, in += bytespp) {
       for (GLuint b = 0; b < bytespp; ++b)
         out[b] = (in[b] + in[out_pitch + b]) >> 1;
+    }
+  }
+}
+
+// NOTE: this is slow as fuck!
+// low quality mipmapping is possible by just taking 1 out of 4 samples, but it looks like complete ass
+static void tex_mip8(GLubyte *out, const GLubyte *in, GLuint w, GLuint h, const GLubyte *pal, const GLuint palnum) {
+  h /= 2;
+
+  for (GLuint i = 0; i < h; ++i, in += w) {
+    for (GLuint j = 0; j < w; j += 2, in += 2, ++out) {
+      // get the average RGBA value of 2x2 samples
+      const GLubyte *c00 = pal + (in[    0] << 2);
+      const GLubyte *c01 = pal + (in[    1] << 2);
+      const GLubyte *c10 = pal + (in[w + 0] << 2);
+      const GLubyte *c11 = pal + (in[w + 1] << 2);
+      const GLubyte r = (c00[0] + c01[0] + c10[0] + c11[0]) >> 2;
+      const GLubyte g = (c00[1] + c01[1] + c10[1] + c11[1]) >> 2;
+      const GLubyte b = (c00[2] + c01[2] + c10[2] + c11[2]) >> 2;
+      const GLubyte a = (c00[3] + c01[3] + c10[3] + c11[3]) >> 2;
+      // find the closest RGBA value in the palette
+      GLint mindist = INT_MAX;
+      GLubyte mincol = in[0];
+      const GLubyte *c = pal;
+      for (GLuint n = 0; n < palnum; ++n, c += 4) {
+        const GLshort dr = r - c[0];
+        const GLshort dg = g - c[1];
+        const GLshort db = b - c[2];
+        const GLshort da = a - c[3];
+        const GLint dist = dr * dr + dg * dg + db * db + da * da;
+        if (dist < mindist) {
+          mindist = dist;
+          mincol = n;
+        }
+      }
+      // put the palette index of that value into the result
+      *out = mincol;
     }
   }
 }
@@ -303,17 +377,26 @@ static void tex_build_mips(texture_t *tex, GLubyte *data, const GLboolean in_pla
     in = data;
   }
 
+  // NOTE: reading directly from contiguous memory where the palette is stored
+  // seems to be very slow and sometimes seemingly causes hangs for some reason
+  const GLuint palnum = tex->palette.width;
+  GLubyte pal[PAL_MAX_WIDTH  * PAL_BYTESPP] __attribute__((aligned(MEM_ALIGNMENT)));
+  if (palnum) pbgl_aligned_copy(pal, tex->palette.data, palnum * PAL_BYTESPP);
+
   for (GLuint level = tex->mipcount; level < tex->mipmax; ++level, ++tex->mipcount) {
     const GLuint bytespp = tex->bytespp;
     const GLuint out_pitch = tex->mips[level].pitch;
     const GLuint out_w = tex->mips[level].width;
     const GLuint out_h = tex->mips[level].height;
-    const GLuint in_pitch = tex->mips[level - 1].pitch;
-    // FIXME: this is not RGB555/RGB565/RGBA5551 aware
-    // scronch down the width
-    tex_mip_width(buf, tex->mips[level].size << 1, in, bytespp);
-    // scronch down the height
-    tex_mip_height(buf, out_pitch, out_h, buf, bytespp);
+    if (bytespp >= 3) {
+      // scronch down the width
+      tex_mip_width32(buf, tex->mips[level].size << 1, in, bytespp);
+      // scronch down the height
+      tex_mip_height32(buf, out_pitch, out_h, buf, bytespp);
+    } else if (bytespp == 1) {
+      // scronch down the image
+      tex_mip8(buf, in, tex->mips[level - 1].width, tex->mips[level - 1].height, pal, palnum);
+    }
     // swizzle the fucker
     swizzle_rect(buf, out_w, out_h, tex->mips[level].data, out_pitch, bytespp);
     // make sure we're using the previous buffer as input
@@ -326,8 +409,35 @@ static void tex_build_mips(texture_t *tex, GLubyte *data, const GLboolean in_pla
   tex_gl_to_nv(tex);
 }
 
+static void tex_store_palette(texture_t *tex) {
+  GLubyte *dst = tex->palette.data;
+  const GLubyte *src = tex->palette.source;
+  const GLuint intbytespp = tex->palette.intbytespp;
+  const GLuint extbytespp = tex->palette.extbytespp;
+  const GLboolean alpha = intbytespp == 4;
+  if (extbytespp == 3 || extbytespp == 4) {
+    // same as above; RGB is actually XRGB
+    for (GLuint i = 0; i < tex->palette.width; ++i) {
+      dst[0] = src[2];
+      dst[1] = src[1];
+      dst[2] = src[0];
+      dst[3] = alpha ? src[3] : 0xFF;
+      dst += 4;
+      src += extbytespp;
+    }
+  } else {
+    pbgl_debug_log("unimplemented palette conversion from 0x%04x to GL_RGBA8", tex->palette.extformat);
+  }
+
+  tex->palette.source = NULL;
+}
+
 static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint bytespp, GLuint level, GLuint x, GLuint y, GLuint w, GLuint h, GLboolean reverse, GLboolean genmips) {
   GLubyte *out = (GLubyte *)tex->mips[level].data;
+
+  // store palette, if any
+  if (tex->palette.source)
+    tex_store_palette(tex);
 
   if (tex->bytespp == bytespp && !reverse) {
     // no need for conversion
@@ -365,7 +475,7 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
       src += bytespp;
     }
   } else {
-    // TODO: unimplemented
+    pbgl_debug_log("unimplemented conversion from 0x%04x to 0x%04x", fmt, tex->gl.baseformat);
   }
 
   // upload converted texture
@@ -401,18 +511,21 @@ static GLboolean tex_alloc(texture_t *tex) {
     GLuint height = tex->height;
     GLuint level = 0;
     GLubyte *ofs = NULL;
+    mipmap_t *mip = tex->mips + level;
     tex->size = 0;
-    while (width > 1 || height > 1) {
-      tex->mips[level].width = width;
-      tex->mips[level].height = height;
-      tex->mips[level].pitch = tex->bytespp * width;
-      tex->mips[level].size = tex->mips[level].pitch * height;
-      tex->mips[level].data = ofs;
-      ofs += tex->mips[level].size;
-      tex->size += tex->mips[level].size;
+
+    while (width >= 1 || height >= 1) {
+      mip->width = umax(width, 1);
+      mip->height = umax(height, 1);
+      mip->pitch = tex->bytespp * mip->width;
+      mip->size = mip->pitch * mip->height;
+      mip->data = ofs;
+      ofs += mip->size;
+      tex->size += mip->size;
       level++;
-      width = umax((width >> 1), 1);
-      height = umax((height >> 1), 1);
+      mip++;
+      width = width >> 1;
+      height = height >> 1;
     }
     tex->mipmax = level;
   } else {
@@ -425,11 +538,16 @@ static GLboolean tex_alloc(texture_t *tex) {
     tex->mipmax = 1;
   }
 
-  tex->data = pbgl_mem_alloc(tex->size);
+  const GLuint palsize = tex->palette.width * PAL_BYTESPP;
+  const GLuint asize = ALIGN(tex->size, PAL_ALIGN);
+  tex->total = palsize ? asize + palsize : tex->size;
+  tex->data = pbgl_mem_alloc(tex->total);
   if (!tex->data) {
     pbgl_set_error(GL_OUT_OF_MEMORY);
     return GL_FALSE;
   }
+
+  tex->palette.data = palsize ? tex->data + asize : NULL;
 
   // turn miplevel offsets into pointers
   for (GLuint i = 0; i < tex->mipmax; ++i)
@@ -448,10 +566,15 @@ static inline void tex_free(texture_t *tex) {
 
 static inline GLboolean tex_realloc(texture_t *tex) {
   // move the texture off to the heap to reduce contiguous memory fragmentation
-  void *copy = malloc(tex->size);
+  const GLuint palsize = tex->palette.width * PAL_BYTESPP;
+  const GLuint oldsize = tex->mips[0].size;
+  const GLuint oldtotal = oldsize + palsize;
+  GLubyte *copy = malloc(oldtotal);
   if (!copy) return GL_FALSE;
 
-  pbgl_aligned_copy(copy, tex->data, tex->size);
+  pbgl_aligned_copy(copy, tex->data, oldtotal);
+  if (palsize)
+    pbgl_aligned_copy(copy + oldsize, tex->palette.data, palsize);
 
   // realloc
   pbgl_mem_free(tex->data);
@@ -462,7 +585,9 @@ static inline GLboolean tex_realloc(texture_t *tex) {
   }
 
   // restore the texture
-  pbgl_aligned_copy(tex->data, copy, tex->mips[0].size);
+  pbgl_aligned_copy(tex->data, copy, oldsize);
+  if (palsize)
+    pbgl_aligned_copy(tex->palette.data, copy + oldsize, palsize);
 
   free(copy);
 
@@ -506,7 +631,7 @@ GLboolean pbgl_tex_init(void) {
 
 void pbgl_tex_free(void) {
   for (GLuint i = 0; i < tex_count; ++i) {
-    if (textures[i].used && textures[i].data)
+    if (textures[i].used)
       pbgl_mem_free(textures[i].data);
   }
   free(textures);
@@ -656,8 +781,6 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
 
   // lower to the previous power of two, we only support power of two textures
   // TODO: actually downscale
-  const GLuint old_width = width;
-  const GLuint old_height = height;
   width = uflp2(width);
   height = uflp2(height);
 
@@ -783,6 +906,51 @@ GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, 
     tex_store(tex, data, format, data_bytespp, level, xoff, yoff, width, height, reverse, GL_FALSE);
     // pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
   }
+}
+
+GL_API void glColorTableEXT(GLenum target, GLenum intfmt, GLsizei width, GLenum format, GLenum type, const void *data) {
+  if (target != GL_TEXTURE_2D) {
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  texture_t *tex = pbgl.tex[pbgl.active_tex_sv].tex;
+  if (!tex) {
+    pbgl_set_error(GL_INVALID_OPERATION);
+    return;
+  }
+
+  if (width != 32 && width != 64 && width != 128 && width != 256) {
+    pbgl_set_error(GL_INVALID_VALUE);
+    return;
+  }
+
+  if (intfmt != GL_RGBA && intfmt != GL_RGBA8 && intfmt != GL_RGB && intfmt != GL_RGBA8 && intfmt != 3 && intfmt != 4) {
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  if (format != GL_RGBA && format != GL_RGB) {
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  if (type != GL_UNSIGNED_BYTE) {
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+
+  GLboolean reverse = GL_FALSE;
+  const GLuint extbytespp = extfmt_bytespp(format, type, &reverse);
+
+  tex->palette.width = width;
+  tex->palette.baseformat = intfmt_basefmt(intfmt);
+  tex->palette.intbytespp = intfmt_bytespp(intfmt);
+  tex->palette.extformat = format;
+  tex->palette.extbytespp = extbytespp;
+  tex->palette.source = data;
+
+  pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
 }
 
 GL_API void glTexParameteri(GLenum target, GLenum pname, GLint param) {

@@ -200,14 +200,16 @@ static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
       const GLuint texmat = MTX_TEXTURE0 + i;
       p = push_command_parameter(p, NV097_SET_TEXTURE_OFFSET + tidx, tu->tex->nv.addr);
       p = push_command_parameter(p, NV097_SET_TEXTURE_FORMAT + tidx, tu->tex->nv.format);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_PALETTE + tidx, tu->tex->nv.palette);
       p = push_command_parameter(p, NV097_SET_TEXTURE_ADDRESS + tidx, tu->tex->nv.wrap);
       p = push_command_parameter(p, NV097_SET_TEXTURE_CONTROL0 + tidx, enable |
         PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MIN_LOD_CLAMP, 0) |
-        PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MAX_LOD_CLAMP, tu->tex->mipmax - 1));
+        PBGL_MASK(NV097_SET_TEXTURE_CONTROL0_MAX_LOD_CLAMP, 4095));
       p = push_command_parameter(p, NV097_SET_TEXTURE_FILTER + tidx, tu->tex->nv.filter);
       p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, !pbgl.mtx[texmat].identity);
     } else {
       p = push_command_parameter(p, NV097_SET_TEXTURE_CONTROL0 + tidx, NV_TEX_DISABLE);
+      p = push_command_parameter(p, NV097_SET_TEXTURE_PALETTE + tidx, 0);
       p = push_command_boolean(p, NV097_SET_TEXTURE_MATRIX_ENABLE + i * 4, GL_FALSE);
     }
 

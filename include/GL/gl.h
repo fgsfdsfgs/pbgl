@@ -618,9 +618,6 @@ typedef void     GLvoid;
 
 #define GL_EXT_vertex_array 1
 #define GL_EXT_bgra 1
-#define GL_EXT_paletted_texture 1
-#define GL_WIN_swap_hint 1
-#define GL_WIN_draw_range_elements 1
 
 #define GL_VERTEX_ARRAY_EXT 0x8074
 #define GL_NORMAL_ARRAY_EXT 0x8075

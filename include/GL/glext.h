@@ -850,6 +850,15 @@ typedef void (*PFNGLGETBUFFERPOINTERVARBPROC) (GLenum target, GLenum pname, void
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 #endif /* GL_EXT_texture_filter_anisotropic */
 
+#ifndef GL_EXT_paletted_texture
+#define GL_EXT_paletted_texture 1
+#define GL_COLOR_INDEX8_EXT 0x80E5
+typedef void (*PFNGLCOLORTABLEEXTPROC) (GLenum target, GLenum internalFormat, GLsizei width, GLenum format, GLenum type, const void *data);
+#ifdef GL_GLEXT_PROTOTYPES
+GL_API void glColorTableEXT (GLenum target, GLenum internalFormat, GLsizei width, GLenum format, GLenum type, const void *data);
+#endif
+#endif /* GL_EXT_paletted_texture */
+
 #ifndef GL_PBGL_texture_generate_mipmap
 #define GL_PBGL_texture_generate_mipmap 1
 #define GL_EXPECT_MIPMAPS_PBGL 0x9701

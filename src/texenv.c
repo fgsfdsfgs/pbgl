@@ -115,7 +115,7 @@ static inline GLuint *texenv_push_replace(GLuint *p, const GLuint texid, const G
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
-  switch (tex->gl.baseformat) {
+  switch (tex->gl.baseformat == GL_COLOR_INDEX ? tex->palette.baseformat : tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
       p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_C0, OP_C0);
@@ -153,7 +153,7 @@ static inline GLuint *texenv_push_modulate(GLuint *p, const GLuint texid, const 
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
-  switch (tex->gl.baseformat) {
+  switch (tex->gl.baseformat == GL_COLOR_INDEX ? tex->palette.baseformat : tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
       p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_C0, OP_C0);
@@ -191,7 +191,7 @@ static inline GLuint *texenv_push_add(GLuint *p, const GLuint texid, const GLuin
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
-  switch (tex->gl.baseformat) {
+  switch (tex->gl.baseformat == GL_COLOR_INDEX ? tex->palette.baseformat : tex->gl.baseformat) {
     case GL_ALPHA:
       // Cv = Cp
       p = texenv_push_src_rgb(p, texid, OP_CP, OP_C1, OP_C0, OP_C0);
@@ -229,7 +229,7 @@ static inline GLuint *texenv_push_decal(GLuint *p, const GLuint texid, const GLu
   const GLuint shift_rgb = NV097_SET_COMBINER_COLOR_OCW_OP_NOSHIFT;
   const GLuint shift_a = NV097_SET_COMBINER_ALPHA_OCW_OP_NOSHIFT;
   const texture_t *tex = pbgl.tex[texid].tex;
-  switch (tex->gl.baseformat) {
+  switch (tex->gl.baseformat == GL_COLOR_INDEX ? tex->palette.baseformat : tex->gl.baseformat) {
     case GL_RGB:
       // Cv = Cs
       p = texenv_push_src_rgb(p, texid, OP_CS, OP_C1, OP_C0, OP_C0);
