@@ -26,6 +26,7 @@ Known limitations:
 * NPOT textures are not supported and will likely explode;
 * supported texture formats:
   * `RGB888`, `RGBA8888`
+  * `GL_COLOR_INDEX8_EXT` (with either `GL_RGB8` or `GL_RGBA8` palettes, no format conversion)
   * `ALPHA8`, `LUMINANCE8`, `LUMINANCE8_ALPHA8` (untested, no format conversion)
   * `RGBA4444`, `RGB555`, `RGBA5551` (untested, no format conversion)
 
