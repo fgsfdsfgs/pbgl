@@ -11,6 +11,7 @@
 #define PAL_ALIGN 64
 #define PAL_BYTESPP 4 // internally palettes are always RGBA8888
 #define PAL_MAX_WIDTH 256
+#define PAL_SHARED_COUNT 8
 
 typedef struct {
   GLubyte *data;
@@ -19,6 +20,16 @@ typedef struct {
   GLuint size;
   GLuint pitch;
 } mipmap_t;
+
+typedef struct {
+  const GLubyte *source;
+  GLubyte *data;
+  GLenum baseformat;
+  GLenum extformat;
+  GLushort intbytespp; // requested by client; internally all palettes are 4 bytes
+  GLushort extbytespp;
+  GLushort width;
+} palette_t;
 
 typedef struct {
   struct {
@@ -45,15 +56,8 @@ typedef struct {
     GLboolean gen_mipmap : 1;
   } gl;
 
-  struct {
-    const GLubyte *source;
-    GLubyte *data;
-    GLenum baseformat;
-    GLenum extformat;
-    GLushort intbytespp; // requested by client; internally all palettes are 4 bytes
-    GLushort extbytespp;
-    GLushort width;
-  } palette;
+  palette_t palette;
+  palette_t *shared_palette;
 
   GLboolean used : 1;
   GLboolean allocated : 1;

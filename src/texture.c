@@ -275,9 +275,10 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
   const GLuint size_v = ulog2(tex->height);
   const GLuint size_p = ulog2(tex->depth);
 
-  if (tex->palette.data) {
+  const palette_t *pal = tex->shared_palette ? tex->shared_palette : &tex->palette;
+  if (pal->data && pal->width) {
     GLuint palsize;
-    switch (tex->palette.width) {
+    switch (pal->width) {
       case 32:  palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_32; break;
       case 64:  palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_64; break;
       case 128: palsize = NV097_SET_TEXTURE_PALETTE_LENGTH_128; break;
@@ -286,7 +287,7 @@ static inline GLboolean tex_gl_to_nv(texture_t *tex) {
     tex->nv.palette =
       PBGL_MASK(NV097_SET_TEXTURE_PALETTE_CONTEXT_DMA, PAL_DMA_B) |
       PBGL_MASK(NV097_SET_TEXTURE_PALETTE_LENGTH, palsize) |
-      ((GLuint)tex->palette.data & 0x03FFFFC0);
+      ((GLuint)pal->data & 0x03FFFFC0);
   } else {
     tex->nv.palette = 0;
   }
@@ -377,11 +378,20 @@ static void tex_build_mips(texture_t *tex, GLubyte *data, const GLboolean in_pla
     in = data;
   }
 
+  GLuint palnum;
+  const GLubyte *palsrc;
+  if (tex->shared_palette) {
+    palsrc = tex->shared_palette->data;
+    palnum = tex->shared_palette->width;
+  } else {
+    palsrc = tex->palette.data;
+    palnum = tex->palette.width;
+  }
+
   // NOTE: reading directly from contiguous memory where the palette is stored
   // seems to be very slow and sometimes seemingly causes hangs for some reason
-  const GLuint palnum = tex->palette.width;
   GLubyte pal[PAL_MAX_WIDTH  * PAL_BYTESPP] __attribute__((aligned(MEM_ALIGNMENT)));
-  if (palnum) pbgl_aligned_copy(pal, tex->palette.data, palnum * PAL_BYTESPP);
+  if (palnum) pbgl_aligned_copy(pal, palsrc, palnum * PAL_BYTESPP);
 
   for (GLuint level = tex->mipcount; level < tex->mipmax; ++level, ++tex->mipcount) {
     const GLuint bytespp = tex->bytespp;
@@ -409,15 +419,15 @@ static void tex_build_mips(texture_t *tex, GLubyte *data, const GLboolean in_pla
   tex_gl_to_nv(tex);
 }
 
-static void tex_store_palette(texture_t *tex) {
-  GLubyte *dst = tex->palette.data;
-  const GLubyte *src = tex->palette.source;
-  const GLuint intbytespp = tex->palette.intbytespp;
-  const GLuint extbytespp = tex->palette.extbytespp;
+static void tex_store_palette(palette_t *pal) {
+  GLubyte *dst = pal->data;
+  const GLubyte *src = pal->source;
+  const GLuint intbytespp = pal->intbytespp;
+  const GLuint extbytespp = pal->extbytespp;
   const GLboolean alpha = intbytespp == 4;
   if (extbytespp == 3 || extbytespp == 4) {
     // same as above; RGB is actually XRGB
-    for (GLuint i = 0; i < tex->palette.width; ++i) {
+    for (GLuint i = 0; i < pal->width; ++i) {
       dst[0] = src[2];
       dst[1] = src[1];
       dst[2] = src[0];
@@ -426,18 +436,19 @@ static void tex_store_palette(texture_t *tex) {
       src += extbytespp;
     }
   } else {
-    pbgl_debug_log("unimplemented palette conversion from 0x%04x to GL_RGBA8", tex->palette.extformat);
+    pbgl_debug_log("unimplemented palette conversion from 0x%04x to GL_RGBA8", pal->extformat);
   }
 
-  tex->palette.source = NULL;
+  pal->source = NULL;
 }
 
 static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint bytespp, GLuint level, GLuint x, GLuint y, GLuint w, GLuint h, GLboolean reverse, GLboolean genmips) {
   GLubyte *out = (GLubyte *)tex->mips[level].data;
 
   // store palette, if any
-  if (tex->palette.source)
-    tex_store_palette(tex);
+  palette_t *pal = tex->shared_palette ? tex->shared_palette : &tex->palette;
+  if (pal->source)
+    tex_store_palette(pal);
 
   if (tex->bytespp == bytespp && !reverse) {
     // no need for conversion
@@ -594,6 +605,18 @@ static inline GLboolean tex_realloc(texture_t *tex) {
   return GL_TRUE;
 }
 
+static GLboolean tex_alloc_shared_palette_mem(void) {
+  pbgl.shared_palette_mem = pbgl_mem_alloc(PAL_MAX_WIDTH * PAL_BYTESPP * PAL_SHARED_COUNT);
+  if (!pbgl.shared_palette_mem)
+    return GL_FALSE;
+  // set up palette data pointers
+  palette_t *pal = pbgl.shared_palette;
+  GLuint ofs = 0;
+  for (GLuint i = 0; i < PAL_SHARED_COUNT; ++i, ++pal, ofs += PAL_MAX_WIDTH * PAL_BYTESPP)
+    pal->data = pbgl.shared_palette_mem + ofs;
+  return GL_TRUE;
+}
+
 GLboolean pbgl_tex_init(void) {
   textures = calloc(TEX_ALLOC_STEP, sizeof(texture_t));
 
@@ -633,6 +656,11 @@ void pbgl_tex_free(void) {
   for (GLuint i = 0; i < tex_count; ++i) {
     if (textures[i].used)
       pbgl_mem_free(textures[i].data);
+  }
+  if (pbgl.shared_palette_mem) {
+    pbgl_mem_free(pbgl.shared_palette_mem);
+    pbgl.shared_palette_mem = NULL;
+    memset(pbgl.shared_palette, 0, sizeof(pbgl.shared_palette));
   }
   free(textures);
   textures = NULL;
@@ -776,6 +804,25 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     return;
   }
 
+  // if the palette is not set but the color format is COLOR_INDEX, either assign a shared palette or bail
+  const GLenum basefmt = intfmt_basefmt(intfmt);
+  if (!tex->palette.source && basefmt == GL_COLOR_INDEX) {
+    palette_t *pal = &pbgl.shared_palette[pbgl.active_shared_palette];
+    if (!pbgl.flags.shared_pal || !pal->data) {
+      // need a palette
+      pbgl_set_error(GL_INVALID_OPERATION);
+      return;
+    }
+    // set shared palette and make sure the texture palette is reset
+    tex->shared_palette = pal;
+    tex->palette.width = 0;
+    tex->palette.source = 0;
+    tex->palette.data = NULL;
+  } else {
+    // using no palette or a per-texture palette, reset shared
+    tex->shared_palette = NULL;
+  }
+
   pbgl.state_dirty = pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
   pbgl.texenv_dirty = GL_TRUE; // texture type might have changed
 
@@ -829,7 +876,7 @@ GL_API void glTexImage2D(GLenum target, GLint level, GLint intfmt, GLsizei width
     tex->gl.basetarget = target;
     tex->gl.type = type;
     tex->gl.format = intfmt;
-    tex->gl.baseformat = intfmt_basefmt(intfmt);
+    tex->gl.baseformat = basefmt;
     // allocate memory
     if (!tex_alloc(tex)) {
       pbgl_set_error(GL_OUT_OF_MEMORY);
@@ -909,23 +956,12 @@ GL_API void glTexSubImage2D(GLenum target, GLint level, GLint xoff, GLint yoff, 
 }
 
 GL_API void glColorTableEXT(GLenum target, GLenum intfmt, GLsizei width, GLenum format, GLenum type, const void *data) {
-  if (target != GL_TEXTURE_2D) {
-    pbgl_set_error(GL_INVALID_ENUM);
-    return;
-  }
-
-  texture_t *tex = pbgl.tex[pbgl.active_tex_sv].tex;
-  if (!tex) {
-    pbgl_set_error(GL_INVALID_OPERATION);
-    return;
-  }
-
   if (width != 32 && width != 64 && width != 128 && width != 256) {
     pbgl_set_error(GL_INVALID_VALUE);
     return;
   }
 
-  if (intfmt != GL_RGBA && intfmt != GL_RGBA8 && intfmt != GL_RGB && intfmt != GL_RGBA8 && intfmt != 3 && intfmt != 4) {
+  if (intfmt != GL_RGBA && intfmt != GL_RGBA8 && intfmt != GL_RGB && intfmt != GL_RGB8 && intfmt != 3 && intfmt != 4) {
     pbgl_set_error(GL_INVALID_ENUM);
     return;
   }
@@ -943,13 +979,59 @@ GL_API void glColorTableEXT(GLenum target, GLenum intfmt, GLsizei width, GLenum 
   GLboolean reverse = GL_FALSE;
   const GLuint extbytespp = extfmt_bytespp(format, type, &reverse);
 
-  tex->palette.width = width;
-  tex->palette.baseformat = intfmt_basefmt(intfmt);
-  tex->palette.intbytespp = intfmt_bytespp(intfmt);
-  tex->palette.extformat = format;
-  tex->palette.extbytespp = extbytespp;
-  tex->palette.source = data;
+  palette_t *pal;
+  texture_t *tex = NULL;
+  switch (target) {
+    case GL_SHARED_TEXTURE_PALETTE_EXT:
+    case GL_SHARED_TEXTURE_PALETTE0_PBGL ... GL_SHARED_TEXTURE_PALETTE7_PBGL:
+      // shared palettes
+      pal = pbgl.shared_palette +
+        ((target == GL_SHARED_TEXTURE_PALETTE_EXT) ?
+          pbgl.active_shared_palette :
+          (target - GL_SHARED_TEXTURE_PALETTE0_PBGL));
+      break;
+    case GL_TEXTURE_2D:
+      // per-texture palette
+      tex = pbgl.tex[pbgl.active_tex_sv].tex;
+      if (!tex) {
+        pbgl_set_error(GL_INVALID_OPERATION);
+        return;
+      }
+      pal = &tex->palette;
+      break;
+    default:
+      pbgl_set_error(GL_INVALID_ENUM);
+      return;
+  }
 
+  pal->width = width;
+  pal->baseformat = intfmt_basefmt(intfmt);
+  pal->intbytespp = pal->baseformat == GL_RGBA ? 4 : 3;
+  pal->extformat = format;
+  pal->extbytespp = extbytespp;
+  pal->source = data;
+
+  // upload shared palettes immediately
+  if (!tex) {
+    // if there is no shared palette memory allocated yet, allocate it
+    if (!pbgl.shared_palette_mem && !tex_alloc_shared_palette_mem()) {
+      pal->source = NULL;
+      pal->width = 0;
+      pbgl_set_error(GL_OUT_OF_MEMORY);
+      return;
+    }
+    tex_store_palette(pal);
+  }
+
+  pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
+}
+
+GL_API void glActiveSharedPalettePBGL(GLenum pal) {
+  if (pal < GL_SHARED_TEXTURE_PALETTE0_PBGL || pal > GL_SHARED_TEXTURE_PALETTE7_PBGL) {
+    pbgl_set_error(GL_INVALID_ENUM);
+    return;
+  }
+  pbgl.active_shared_palette = pal - GL_SHARED_TEXTURE_PALETTE0_PBGL;
   pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
 }
 

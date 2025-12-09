@@ -13,6 +13,8 @@ Extension list:
 * `GL_ARB_texture_env_combine`
 * `GL_ARB_texture_env_add`
 * `GL_EXT_paletted_texture` (provides `glColorTableEXT` and `GL_COLOR_INDEX8_EXT`)
+* `GL_EXT_shared_texture_palette` (provides `GL_SHARED_TEXTURE_PALETTE_EXT`)
+* `GL_PBGL_shared_texture_palette` (provides `GL_SHARED_TEXTURE_PALETTEn_PBGL` and `glActiveSharedPalettePBGL`)
 * `GL_PBGL_texture_generate_mipmap` (provides `glGenerateMipmap`, `GL_EXPECT_MIPMAPS_PBGL` and `GL_GENERATE_MIPMAP`)
 * `GL_PBGL_stats` (provides `GL_TEXTURE_MEMORY_USAGE_PBGL` and `GL_TEXTURE_COUNT_PBGL`)
 

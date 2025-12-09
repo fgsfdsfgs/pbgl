@@ -23,6 +23,7 @@ typedef union {
     GLuint poly_offset  : 1; // 9
     GLuint normalize    : 1; // 10
     GLuint line_smooth  : 1; // 11
+    GLuint shared_pal   : 1; // 12
   };
   GLuint word;
 } server_flags_t;
@@ -247,6 +248,10 @@ typedef struct {
 
   texgen_state_t texgen[TEXUNIT_COUNT];
   GLboolean texgen_dirty;
+
+  palette_t shared_palette[PAL_SHARED_COUNT];
+  GLubyte *shared_palette_mem;
+  GLuint active_shared_palette;
 
   light_state_t light[LIGHT_COUNT];
   GLboolean light_any_dirty;

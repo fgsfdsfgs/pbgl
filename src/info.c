@@ -20,8 +20,10 @@ static const char *gl_ext_string = \
   "GL_ARB_multitexture " \
   "GL_ARB_texture_env_add " \
   "GL_ARB_texture_env_combine " \
-  "GL_EXT_paletted_texture" \
-  "GL_PBGL_texture_generate_mipmap" \
+  "GL_EXT_paletted_texture " \
+  "GL_EXT_shared_texture_palette " \
+  "GL_PBGL_shared_texture_palette " \
+  "GL_PBGL_texture_generate_mipmap " \
   "GL_PBGL_stats";
 
 /* GL FUNCTIONS BEGIN */

@@ -457,6 +457,13 @@ static inline void set_feature(GLenum feature, GLboolean value) {
       FLAG_DIRTY_IF_CHANGED(cullface, cull_face, value);
       pbgl.flags.cull_face = value;
       break;
+    case GL_SHARED_TEXTURE_PALETTE_EXT:
+      if (pbgl.flags.shared_pal != value) {
+        pbgl.flags.shared_pal = value;
+        pbgl.state_dirty = GL_TRUE;
+        pbgl.tex_any_dirty = pbgl.tex[pbgl.active_tex_sv].dirty = GL_TRUE;
+      }
+      break;
     case GL_DITHER:
       // TODO
       pbgl.flags.dither = value;
@@ -581,6 +588,7 @@ GL_API GLboolean glIsEnabled(GLenum feature) {
     case GL_TEXTURE_GEN_R:        return pbgl.texgen[pbgl.active_tex_sv].coord[2].enabled;
     case GL_TEXTURE_GEN_Q:        return pbgl.texgen[pbgl.active_tex_sv].coord[3].enabled;
     case GL_LINE_SMOOTH:          return pbgl.flags.line_smooth;
+    case GL_SHARED_TEXTURE_PALETTE_EXT: return pbgl.flags.shared_pal;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       return GL_FALSE;

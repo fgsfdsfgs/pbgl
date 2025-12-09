@@ -859,6 +859,24 @@ GL_API void glColorTableEXT (GLenum target, GLenum internalFormat, GLsizei width
 #endif
 #endif /* GL_EXT_paletted_texture */
 
+#ifndef GL_EXT_shared_texture_palette
+#define GL_EXT_shared_texture_palette 1
+#define GL_SHARED_TEXTURE_PALETTE_EXT 0x81FB
+#endif /* GL_EXT_shared_texture_palette */
+
+#ifndef GL_PBGL_shared_texture_palette
+#define GL_PBGL_shared_texture_palette 1
+#define GL_SHARED_TEXTURE_PALETTE0_PBGL 0x9780
+#define GL_SHARED_TEXTURE_PALETTE1_PBGL 0x9781
+#define GL_SHARED_TEXTURE_PALETTE2_PBGL 0x9782
+#define GL_SHARED_TEXTURE_PALETTE3_PBGL 0x9783
+#define GL_SHARED_TEXTURE_PALETTE4_PBGL 0x9784
+#define GL_SHARED_TEXTURE_PALETTE5_PBGL 0x9785
+#define GL_SHARED_TEXTURE_PALETTE6_PBGL 0x9786
+#define GL_SHARED_TEXTURE_PALETTE7_PBGL 0x9787
+GL_API void glActiveSharedPalettePBGL(GLenum pal);
+#endif /* GL_PBGL_shared_texture_palette */
+
 #ifndef GL_PBGL_texture_generate_mipmap
 #define GL_PBGL_texture_generate_mipmap 1
 #define GL_EXPECT_MIPMAPS_PBGL 0x9701
