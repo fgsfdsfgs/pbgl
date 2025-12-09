@@ -36,8 +36,8 @@ void pbgl_state_init(void) {
   pbgl.flags.dither = GL_TRUE;
   pbgl.error = GL_NO_ERROR;
 
-  // nv2a compare func index = GL func index - 0x200
-  pbgl.alpha.func = GL_ALWAYS & 0xF;
+  // nv2a compare func index = GL func index
+  pbgl.alpha.func = GL_ALWAYS;
   pbgl.alpha.dirty = GL_TRUE;
 
   // src and dst blend factors are equal between nv2a and GL
@@ -607,10 +607,11 @@ GL_API void glDisableClientState(GLenum state) {
 
 GL_API void glAlphaFunc(GLenum func, GLclampf ref) {
   const GLubyte uref = ref * 255.f;
-  if (pbgl.alpha.func != func || pbgl.alpha.ref != uref)
+  if (pbgl.alpha.func != func || pbgl.alpha.ref != uref) {
     pbgl.state_dirty = pbgl.alpha.dirty = GL_TRUE;
-  pbgl.alpha.func = func & 0xF;
-  pbgl.alpha.ref = uref;
+    pbgl.alpha.func = func;
+    pbgl.alpha.ref = uref;
+  }
 }
 
 GL_API void glBlendColor(GLclampf rf, GLclampf gf, GLclampf bf, GLclampf af) {
@@ -619,22 +620,25 @@ GL_API void glBlendColor(GLclampf rf, GLclampf gf, GLclampf bf, GLclampf af) {
   const GLubyte b = bf * 255.f;
   const GLubyte a = af * 255.f;
   const GLuint color = (a << 24) | (r << 16) | (g << 8) | b;
-  if (pbgl.blend.color != color)
+  if (pbgl.blend.color != color) {
     pbgl.state_dirty = pbgl.blend.dirty = GL_TRUE;
-  pbgl.blend.color = color;
+    pbgl.blend.color = color;
+  }
 }
 
 GL_API void glBlendEquation(GLenum eqn) {
-  if (pbgl.blend.eqn != eqn)
+  if (pbgl.blend.eqn != eqn) {
       pbgl.state_dirty = pbgl.blend.dirty = GL_TRUE;
-  pbgl.blend.eqn = eqn;
+    pbgl.blend.eqn = eqn;
+  }
 }
 
 GL_API void glBlendFunc(GLenum sfactor, GLenum dfactor) {
-  if (pbgl.blend.src != sfactor || pbgl.blend.dst != dfactor)
+  if (pbgl.blend.src != sfactor || pbgl.blend.dst != dfactor) {
     pbgl.state_dirty = pbgl.blend.dirty = GL_TRUE;
-  pbgl.blend.src = sfactor;
-  pbgl.blend.dst = dfactor;
+    pbgl.blend.src = sfactor;
+    pbgl.blend.dst = dfactor;
+  }
 }
 
 GL_API void glClearColor(GLclampf rf, GLclampf gf, GLclampf bf, GLclampf af) {
