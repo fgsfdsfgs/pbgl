@@ -22,5 +22,17 @@ static inline GLint imin(const GLint a, const GLint b) {
   return (a < b) ? a : b;
 }
 
+static inline GLuint ulog2(const GLuint value) {
+  return (31 - __builtin_clz(value | 1));
+}
+
+static inline GLuint uflp2(GLuint x) {
+  x = x | (x >> 1);
+  x = x | (x >> 2);
+  x = x | (x >> 4);
+  x = x | (x >> 8);
+  x = x | (x >> 16);
+  return x - (x >> 1);
+}
 
 #endif // _PBGL_MISC_H

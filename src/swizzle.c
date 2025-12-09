@@ -33,7 +33,7 @@
  */
 
 #include "swizzle.h"
-#include "utils.h"
+#include "misc.h"
 
 static inline uint32_t swizzle2d(uint32_t v, uint32_t s) {
   v = (v | (v << 8)) & 0x00ff00ffu;
