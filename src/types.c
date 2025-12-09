@@ -15,17 +15,12 @@ const mat4f mat4_identity = {
 };
 
 mat4f *mat4_mul_sse(mat4f *c, const mat4f *a, const mat4f *b) {
-  __m128 row[4], sum[4];
-  row[0] = _mm_load_ps(a->m[0]);
-  row[1] = _mm_load_ps(a->m[1]);
-  row[2] = _mm_load_ps(a->m[2]);
-  row[3] = _mm_load_ps(a->m[3]);
+  __m128 sum[4];
   for(int i = 0; i < 4; i++) {
-    sum[i] = _mm_setzero_ps();
-    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][0]), row[0]), sum[i]);
-    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][1]), row[1]), sum[i]);
-    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][2]), row[2]), sum[i]);
-    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][3]), row[3]), sum[i]);
+    sum[i] = _mm_mul_ps(_mm_set1_ps(b->m[i][0]), a->row[0]);
+    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][1]), a->row[1]), sum[i]);
+    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][2]), a->row[2]), sum[i]);
+    sum[i] = _mm_add_ps(_mm_mul_ps(_mm_set1_ps(b->m[i][3]), a->row[3]), sum[i]);
   }
   _mm_store_ps(c->m[0], sum[0]);
   _mm_store_ps(c->m[1], sum[1]);

@@ -34,6 +34,12 @@ static struct mat4f_stack {
   { mtx_stack_t[3], MTX_STACK_SIZE_T  },
 };
 
+static inline void mtx_mul_current(const mat4f *tmp) {
+  mat4_mul_sse(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, tmp);
+  pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
+  pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
+}
+
 /* pbgl internals */
 
 void pbgl_mtx_reset(GLenum stack) {
@@ -124,7 +130,7 @@ GL_API void glMultMatrixd(const GLdouble *m) {
   mat4f tmp;
   for (int i = 0; i < 16; ++i)
     tmp.v[i] = (float)m[i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
+  mat4_mul_sse(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -134,7 +140,7 @@ GL_API void glMultTransposeMatrixf(const GLfloat *m) {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)
       tmp.m[i][j] = m[j * 4 + i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
+  mat4_mul_sse(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -144,7 +150,7 @@ GL_API void glMultTransposeMatrixd(const GLdouble *m) {
   for (int i = 0; i < 4; ++i)
     for (int j = 0; j < 4; ++j)
       tmp.m[i][j] = (float)m[j * 4 + i];
-  mat4_mul(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
+  mat4_mul_sse(&pbgl.mtx[pbgl.mtx_current].mtx, &pbgl.mtx[pbgl.mtx_current].mtx, &tmp);
   pbgl.mtx[pbgl.mtx_current].identity = GL_FALSE;
   pbgl.state_dirty = pbgl.mtx_any_dirty = pbgl.mtx[pbgl.mtx_current].dirty = GL_TRUE;
 }
@@ -172,7 +178,7 @@ GL_API void glTranslatef(GLfloat x, GLfloat y, GLfloat z) {
   tmp.m[3][0] = x;
   tmp.m[3][1] = y;
   tmp.m[3][2] = z;
-  glMultMatrixf(tmp.v);
+  mtx_mul_current(&tmp);
 }
 
 GL_API void glTranslated(GLdouble x, GLdouble y, GLdouble z) {
@@ -185,7 +191,7 @@ GL_API void glScalef(GLfloat x, GLfloat y, GLfloat z) {
   tmp.m[1][1] = y;
   tmp.m[2][2] = z;
   tmp.m[3][3] = 1.f;
-  glMultMatrixf(tmp.v);
+  mtx_mul_current(&tmp);
 }
 
 GL_API void glScaled(GLdouble x, GLdouble y, GLdouble z) {
@@ -222,7 +228,7 @@ GL_API void glRotatef(GLfloat angle, GLfloat x, GLfloat y, GLfloat z) {
 
   tmp.m[3][3] = 1.f;
 
-  glMultMatrixf(tmp.v);
+  mtx_mul_current(&tmp);
 }
 
 GL_API void glRotated(GLdouble angle, GLdouble x, GLdouble y, GLdouble z) {
@@ -240,7 +246,7 @@ GL_API void glOrtho(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top
   tmp.m[3][2] = - (zfar + znear) / (zfar - znear);
   tmp.m[3][3] = 1.f;
 
-  glMultMatrixf(tmp.v);
+  mtx_mul_current(&tmp);
 }
 
 GL_API void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble znear, GLdouble zfar) {
@@ -254,7 +260,7 @@ GL_API void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble t
   tmp.m[2][3] = -1.f;
   tmp.m[3][2] = - (2.0 * zfar * znear) / (zfar - znear);
 
-  glMultMatrixf(tmp.v);
+  mtx_mul_current(&tmp);
 }
 
 GL_API void gluPerspective(GLdouble fovy, GLdouble aspect, GLdouble znear, GLdouble zfar) {

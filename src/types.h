@@ -1,6 +1,8 @@
 #ifndef _PBGL_TYPES_H
 #define _PBGL_TYPES_H
 
+#include <x86intrin.h>
+
 #define PBGL_Z_MAX 16777215.0
 
 typedef union {
@@ -23,10 +25,10 @@ typedef union {
   vec3f vec3;
 } vec4f;
 
-typedef union {
+typedef union __attribute__((aligned(16))) {
   float v[16];
   float m[4][4];
-  vec4f rows[4];
+  __m128 row[4];
 } mat4f;
 
 extern const vec4f vec4_one;
