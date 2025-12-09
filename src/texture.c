@@ -13,6 +13,7 @@
 #include "misc.h"
 #include "pbgl.h"
 #include "memory.h"
+#include "utils.h"
 #include "swizzle.h"
 #include "texture.h"
 
@@ -45,30 +46,6 @@
 static texture_t *textures = NULL;
 static GLuint tex_count = 0;
 static GLuint tex_cap = 0;
-
-static inline GLuint ulog2(GLuint value) {
-  static const GLuint tab32[32] = {
-     0,  9,  1, 10, 13, 21,  2, 29,
-    11, 14, 16, 18, 22, 25,  3, 30,
-     8, 12, 20, 28, 15, 17, 24,  7,
-    19, 27, 23,  6, 26,  5,  4, 31
-  };
-  value |= value >> 1;
-  value |= value >> 2;
-  value |= value >> 4;
-  value |= value >> 8;
-  value |= value >> 16;
-  return tab32[(GLuint)(value * 0x07C4ACDD) >> 27];
-}
-
-GLuint inline uflp2(GLuint x) {
-  x = x | (x >> 1);
-  x = x | (x >> 2);
-  x = x | (x >> 4);
-  x = x | (x >> 8);
-  x = x | (x >> 16);
-  return x - (x >> 1);
-}
 
 static inline GLuint wrap_gl_to_nv(const GLenum glwrap) {
   switch (glwrap) {
@@ -453,7 +430,7 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
   if (tex->bytespp == bytespp && !reverse) {
     // no need for conversion
     if (x || y || w != tex->mips[level].width || h != tex->mips[level].height)
-      swizzle_subrect(data, x, y, 0, w, h, 1, out, tex->mips[level].width, tex->mips[level].height, tex->depth, tex->bytespp);
+      swizzle_subrect(data, x, y, w, h, out, tex->mips[level].width, tex->mips[level].height, tex->bytespp);
     else
       swizzle_rect(data, w, h, out, tex->mips[level].pitch, tex->bytespp);
     // if requested, build mipmaps starting from the current level
@@ -491,7 +468,7 @@ static void tex_store(texture_t *tex, const GLubyte *data, GLenum fmt, GLuint by
 
   // upload converted texture
   if (x || y || w != tex->mips[level].width || h != tex->mips[level].height)
-    swizzle_subrect(tmp, x, y, 0, w, h, 1, out, tex->mips[level].width, tex->mips[level].height, tex->depth, tex->bytespp);
+    swizzle_subrect(tmp, x, y, w, h, out, tex->mips[level].width, tex->mips[level].height, tex->bytespp);
   else
     swizzle_rect(tmp, w, h, out, tex->mips[level].pitch, tex->bytespp);
 

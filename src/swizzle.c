@@ -1,210 +1,130 @@
 /*
- * texture swizzling routines
+ * Texture swizzling routines from mesa's nv30_transfer.c
+ * (mesa/source/src/gallium/drivers/nouveau/nv30/nv30_transfer.c)
  *
- * Copyright (c) 2015 Jannik Vogel
- * Copyright (c) 2013 espes
- * Copyright (c) 2007-2010 The Nouveau Project.
+ * Slightly modified for use with pbGL.
+ * Was originally based on swizzle.c by Jannik Vogel and espes,
+ * so some function names were preserved.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Original license follows:
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
+ * Copyright 2012 Red Hat Inc.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, see <http://www.gnu.org/licenses/>.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Authors: Ben Skeggs
+ *
  */
-
-#include <stdint.h>
-#include <string.h>
-#include <assert.h>
 
 #include "swizzle.h"
+#include "utils.h"
 
-/* This should be pretty straightforward.
- * It creates a bit pattern like ..zyxzyxzyx from ..xxx, ..yyy and ..zzz
- * If there are no bits left from any component it will pack the other masks
- * more tighly (Example: zzxzxzyx = Fewer x than z and even fewer y)
- */
-void swizzle_generate_masks(
-  unsigned int width, unsigned int height, unsigned int depth,
-  uint32_t* mask_x, uint32_t* mask_y, uint32_t* mask_z
-) {
-  uint32_t x = 0, y = 0, z = 0;
-  uint32_t bit = 1;
-  uint32_t mask_bit = 1;
-  bool done;
-  do {
-    done = true;
-    if (bit < width) { x |= mask_bit; mask_bit <<= 1; done = false; }
-    if (bit < height) { y |= mask_bit; mask_bit <<= 1; done = false; }
-    if (bit < depth) { z |= mask_bit; mask_bit <<= 1; done = false; }
-    bit <<= 1;
-  } while (!done);
-  assert(x ^ y ^ z == (mask_bit - 1));
-  *mask_x = x;
-  *mask_y = y;
-  *mask_z = z;
+static inline uint32_t swizzle2d(uint32_t v, uint32_t s) {
+  v = (v | (v << 8)) & 0x00ff00ffu;
+  v = (v | (v << 4)) & 0x0f0f0f0fu;
+  v = (v | (v << 2)) & 0x33333333u;
+  v = (v | (v << 1)) & 0x55555555u;
+  return v << s;
 }
 
-/* This fills a pattern with a value if your value has bits abcd and your
- * pattern is 11010100100 this will return: 0a0b0c00d00
- */
-uint32_t swizzle_fill_pattern(uint32_t pattern, uint32_t value) {
-  uint32_t result = 0;
-  uint32_t bit = 1;
-  while (value) {
-    if (pattern & bit) {
-      /* Copy bit to result */
-      result |= value & 1 ? bit : 0;
-      value >>= 1;
-    }
-    bit <<= 1;
-  }
-  return result;
+static inline void swizzle2d_init(uint32_t w, uint32_t h, uint32_t *out_k, uint32_t *out_km, uint32_t *out_nx) {
+  const uint32_t k = ulog2(w < h ? w : h);
+  *out_k = k;
+  *out_km = (1 << k) - 1;
+  *out_nx = w >> k;
 }
 
-static inline unsigned int swizzle_get_offset(
-  unsigned int x, unsigned int y, unsigned int z,
-  uint32_t mask_x, uint32_t mask_y, uint32_t mask_z, unsigned int bytes_per_pixel
-) {
-  return bytes_per_pixel * 
-    ( swizzle_fill_pattern(mask_x, x)
-    | swizzle_fill_pattern(mask_y, y)
-    | swizzle_fill_pattern(mask_z, z) );
+static uint32_t swizzle2d_ofs(uint32_t x, uint32_t y, uint32_t k, uint32_t km, uint32_t nx) {
+  const uint32_t tx = x >> k;
+  const uint32_t ty = y >> k;
+  uint32_t m = swizzle2d(x & km, 0);
+  m |= swizzle2d(y & km, 1);
+  m += ((ty * nx) + tx) << k << k;
+  return m;
 }
 
-void swizzle_box(
-  const uint8_t *src_buf,
-  unsigned int width,
-  unsigned int height,
-  unsigned int depth,
-  uint8_t *dst_buf,
-  unsigned int row_pitch,
-  unsigned int slice_pitch,
-  unsigned int bytes_per_pixel
-) {
-  uint32_t mask_x, mask_y, mask_z;
-  swizzle_generate_masks(width, height, depth, &mask_x, &mask_y, &mask_z);
+void unswizzle_rect(const uint8_t *src_buf, uint32_t w, uint32_t h, uint8_t *dst_buf, uint32_t pitch, uint32_t bytespp) {
+  uint32_t k, km, nx;
+  swizzle2d_init(w, h, &k, &km, &nx);
 
-  int x, y, z;
-  for (z = 0; z < depth; z++) {
-    for (y = 0; y < height; y++) {
-      for (x = 0; x < width; x++) {
-        const uint8_t *src = src_buf + y * row_pitch + x * bytes_per_pixel;
-        uint8_t *dst = dst_buf + swizzle_get_offset(x, y, 0, mask_x, mask_y, 0, bytes_per_pixel);
-        switch (bytes_per_pixel) {
-          case 4:
-            *dst++ = *src++;
-            *dst++ = *src++;
-            /* fallthrough */
-          case 2:
-            *dst++ = *src++;
-            /* fallthrough */
-          default:
-            *dst++ = *src++;
-        }
+  for (uint32_t y = 0; y < h; y++) {
+    for (uint32_t x = 0; x < w; x++) {
+      const uint8_t *src = src_buf + swizzle2d_ofs(x, y, k, km, nx) * bytespp;
+      uint8_t *dst = dst_buf + y * pitch + x * bytespp;
+      switch (bytespp) {
+        case 4:
+          *dst++ = *src++;
+          *dst++ = *src++;
+          /* fallthrough */
+        case 2:
+          *dst++ = *src++;
+          /* fallthrough */
+        default:
+          *dst++ = *src++;
       }
     }
-    src_buf += slice_pitch;
   }
 }
 
-void unswizzle_box(
-  const uint8_t *src_buf,
-  unsigned int width,
-  unsigned int height,
-  unsigned int depth,
-  uint8_t *dst_buf,
-  unsigned int row_pitch,
-  unsigned int slice_pitch,
-  unsigned int bytes_per_pixel
-) {
-  uint32_t mask_x, mask_y, mask_z;
-  swizzle_generate_masks(width, height, depth, &mask_x, &mask_y, &mask_z);
+void swizzle_rect(const uint8_t *src_buf, uint32_t w, uint32_t h, uint8_t *dst_buf, uint32_t pitch, uint32_t bytespp) {
+  uint32_t k, km, nx;
+  swizzle2d_init(w, h, &k, &km, &nx);
 
-  int x, y, z;
-  for (z = 0; z < depth; z++) {
-    for (y = 0; y < height; y++) {
-      for (x = 0; x < width; x++) {
-        const uint8_t *src = src_buf + swizzle_get_offset(x, y, z, mask_x, mask_y, mask_z, bytes_per_pixel);
-        uint8_t *dst = dst_buf + y * row_pitch + x * bytes_per_pixel;
-        switch (bytes_per_pixel) {
-          case 4:
-            *dst++ = *src++;
-            *dst++ = *src++;
-            /* fallthrough */
-          case 2:
-            *dst++ = *src++;
-            /* fallthrough */
-          default:
-            *dst++ = *src++;
-        }
+  for (uint32_t y = 0; y < h; y++) {
+    for (uint32_t x = 0; x < w; x++) {
+      const uint8_t *src = src_buf + y * pitch + x * bytespp;
+      uint8_t *dst = dst_buf + swizzle2d_ofs(x, y, k, km, nx) * bytespp;
+      switch (bytespp) {
+        case 4:
+          *dst++ = *src++;
+          *dst++ = *src++;
+          /* fallthrough */
+        case 2:
+          *dst++ = *src++;
+          /* fallthrough */
+        default:
+          *dst++ = *src++;
       }
     }
-    dst_buf += slice_pitch;
   }
-}
-
-void unswizzle_rect(
-  const uint8_t *src_buf,
-  unsigned int width,
-  unsigned int height,
-  uint8_t *dst_buf,
-  unsigned int pitch,
-  unsigned int bytes_per_pixel
-) {
-  unswizzle_box(src_buf, width, height, 1, dst_buf, pitch, 0, bytes_per_pixel);
-}
-
-void swizzle_rect(
-  const uint8_t *src_buf,
-  unsigned int width,
-  unsigned int height,
-  uint8_t *dst_buf,
-  unsigned int pitch,
-  unsigned int bytes_per_pixel
-) {
-    swizzle_box(src_buf, width, height, 1, dst_buf, pitch, 0, bytes_per_pixel);
 }
 
 void swizzle_subrect(
-  const uint8_t *sub_buf,
-  unsigned int sub_x,
-  unsigned int sub_y,
-  unsigned int sub_z,
-  unsigned int sub_width,
-  unsigned int sub_height,
-  unsigned int sub_depth,
-  uint8_t *dst_buf,
-  unsigned int dst_width,
-  unsigned int dst_height,
-  unsigned int dst_depth,
-  unsigned int dst_bytespp
+  const uint8_t *sub_buf, uint32_t sub_x, uint32_t sub_y, uint32_t sub_w, uint32_t sub_h,
+  uint8_t *dst_buf, uint32_t dst_w, uint32_t dst_h, uint32_t dst_bytespp
 ) {
-  uint32_t mask_x, mask_y, mask_z;
-  swizzle_generate_masks(dst_width, dst_height, dst_depth, &mask_x, &mask_y, &mask_z);
+  uint32_t k, km, nx;
+  swizzle2d_init(dst_w, dst_h, &k, &km, &nx);
 
-  unsigned int x, y, z;
-  for (z = 0; z < sub_depth; z++) {
-    for (y = 0; y < sub_height; y++) {
-      for (x = 0; x < sub_width; x++) {
-        uint8_t *dst = dst_buf + swizzle_get_offset(x + sub_x, y + sub_y, z + sub_z, mask_x, mask_y, mask_z, dst_bytespp);
-        switch (dst_bytespp) {
-          case 4:
-            *dst++ = *sub_buf++;
-            *dst++ = *sub_buf++;
-            /* fallthrough */
-          case 2:
-            *dst++ = *sub_buf++;
-            /* fallthrough */
-          default:
-            *dst++ = *sub_buf++;
-        }
+  for (uint32_t y = 0; y < sub_h; y++) {
+    for (uint32_t x = 0; x < sub_w; x++) {
+      uint8_t *dst = dst_buf + swizzle2d_ofs(x + sub_x, y + sub_y, k, km, nx) * dst_bytespp;
+      switch (dst_bytespp) {
+        case 4:
+          *dst++ = *sub_buf++;
+          *dst++ = *sub_buf++;
+          /* fallthrough */
+        case 2:
+          *dst++ = *sub_buf++;
+          /* fallthrough */
+        default:
+          *dst++ = *sub_buf++;
       }
     }
   }
