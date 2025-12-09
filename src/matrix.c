@@ -265,7 +265,7 @@ GL_API void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble t
 
 GL_API void gluPerspective(GLdouble fovy, GLdouble aspect, GLdouble znear, GLdouble zfar) {
   const GLdouble angle = fovy / 360.0 * M_PI;
-  const GLdouble fh = (sin(angle) / cos(angle)) * znear; // FIXME: replace with tan() when it's fixed
+  const GLdouble fh = tan(angle) * znear;
   const GLdouble fw = fh * aspect;
   glFrustum(-fw, fw, -fh, fh, znear, zfar);
 }
