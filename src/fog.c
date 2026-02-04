@@ -21,6 +21,14 @@ GL_API void glFogi(GLenum pname, GLint param) {
       pbgl.fog.density = param;
       pbgl.state_dirty = pbgl.fog.dirty = GL_TRUE;
       break;
+    case GL_FOG_START:
+      pbgl.fog.start = param;
+      pbgl.state_dirty = pbgl.fog.dirty = GL_TRUE;
+      break;
+    case GL_FOG_END:
+      pbgl.fog.end = param;
+      pbgl.state_dirty = pbgl.fog.dirty = GL_TRUE;
+      break;
     default:
       pbgl_set_error(GL_INVALID_ENUM);
       break;
@@ -48,6 +56,8 @@ GL_API void glFogfv(GLenum pname, const GLfloat *params) {
   switch (pname) {
     case GL_FOG_MODE:
     case GL_FOG_DENSITY:
+    case GL_FOG_START:
+    case GL_FOG_END:
       glFogf(pname, params[0]);
       break;
 
@@ -79,6 +89,8 @@ GL_API void glFogiv(GLenum pname, const GLint *params) {
   switch (pname) {
     case GL_FOG_MODE:
     case GL_FOG_DENSITY:
+    case GL_FOG_START:
+    case GL_FOG_END:
       glFogi(pname, params[0]);
       break;
 
