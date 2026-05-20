@@ -219,6 +219,34 @@ static inline GLuint *flush_texunit(GLuint *p, GLuint i) {
   return p;
 }
 
+// From: https://gitlab.freedesktop.org/mesa/mesa/-/blob/amber/src/mesa/drivers/dri/nouveau/nv10_state_tnl.c?ref_type=heads#L104-L130
+void nv10_get_fog_coeff(float k[2])
+{
+	switch (pbgl.fog.mode) {
+	case GL_LINEAR:
+		k[0] = 2 + pbgl.fog.start / (pbgl.fog.end - pbgl.fog.start);
+		k[1] = -1 / (pbgl.fog.end - pbgl.fog.start);
+		break;
+
+	case GL_EXP:
+		k[0] = 1.5;
+		k[1] = -0.09 * pbgl.fog.density;
+		break;
+
+	case GL_EXP2:
+		k[0] = 1.5;
+		k[1] = -0.21 * pbgl.fog.density;
+		break;
+
+	default:
+    break;
+		//assert(0);
+	}
+
+	//k[2] = 0;
+}
+
+
 GLboolean pbgl_state_flush(void) {
   if (!pbgl.state_dirty) return GL_FALSE;
 
@@ -311,7 +339,9 @@ GLboolean pbgl_state_flush(void) {
     p = push_command_boolean(p, NV097_SET_FOG_ENABLE, pbgl.flags.fog);
     p = push_command_parameter(p, NV097_SET_FOG_MODE, pbgl.fog.mode);
     p = push_command_parameter(p, NV097_SET_FOG_COLOR, pbgl.fog.color);
-    // TODO: NV097_SET_FOG_PARAMS
+    float fog_params[2];
+    nv10_get_fog_coeff(fog_params);
+    p = push_command_float2(p, NV097_SET_FOG_PARAMS, fog_params[0], fog_params[1]);
     pbgl.fog.dirty = GL_FALSE;
   }
 
